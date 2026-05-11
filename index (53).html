@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ももコ・もも購</title>
+    <!-- Favicon & Apple Touch Icon -->
+    <link rel="icon" type="image/png" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.jpg?raw=true">
+    <link rel="apple-touch-icon" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.jpg?raw=true">
+    <meta name="apple-mobile-web-app-title" content="ももコ">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB-PFQyZAAo6AajzpkXEcsaQyakFKIaR_8",
+        authDomain: "momoko-shop-app.firebaseapp.com",
+        projectId: "momoko-shop-app",
+        storageBucket: "momoko-shop-app.firebasestorage.app",
+        messagingSenderId: "1031184666626",
+        appId: "1:1031184666626:web:c2b6590aa56fa9c73c171b",
+        measurementId: "G-K9NWWE689H"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // 把 db/auth 掛到 window 讓主程式可以用
+    window._db = db;
+    window._auth = auth;
+    window._firebase = { collection, getDocs, addDoc, setDoc, deleteDoc, doc, onSnapshot, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+
+    // 即時監聽商品和注意事項變動
+    onSnapshot(collection(db, "products"), (snapshot) => {
+        window._products = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (typeof renderProducts === 'function') renderProducts();
+    });
+
+    onSnapshot(collection(db, "notices"), (snapshot) => {
+        window._notices = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+        if (typeof renderNotices === 'function') renderNotices();
+    });
+
+    // 監聽登入狀態
+    onAuthStateChanged(auth, (user) => {
+        window._currentUser = user;
+        if (typeof window._onAuthReady === 'function') window._onAuthReady(user);
+    });
+    </script>
+    <style>
+        :root { --bg: #fdf9f6; --text-dark: #3e2723; --line: #f2f2f2; --accent: #8d6e63; --danger: #d32f2f; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: var(--bg); color: var(--text-dark); letter-spacing: 0.05em; line-height: 1.6; }
+
+        /* 導覽列 */
+        .top-navbar { position: fixed; top: 0; left: 0; width: 100%; height: 70px; background: #f5f0eb; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 1001; border-bottom: 1px solid #e8e0d8; }
+        .nav-left { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .logo-display { height: 55px; width: auto; border-radius: 5px; }
+        .nav-right { display: flex; align-items: center; gap: 20px; font-size: 18px; }
+        .hamburger-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-dark); }
+        .cart-btn-wrapper { position: relative; cursor: pointer; }
+        .cart-count { position: absolute; top: -8px; right: -10px; background: var(--danger); color: white; font-size: 10px; padding: 2px 5px; border-radius: 50%; font-weight: 700; }
+
+        /* 側邊選單與購物車 */
+        .menu-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); z-index: 1999; display: none; backdrop-filter: blur(2px); }
+        .side-menu { height: 100%; width: 0; position: fixed; z-index: 2000; top: 0; right: 0; background-color: #ffffff; transition: 0.3s ease; padding-top: 80px; box-shadow: -5px 0 15px rgba(0,0,0,0.05); overflow-x: hidden; }
+        .side-menu a { padding: 16px 40px; text-decoration: none; font-size: 15px; color: var(--text-dark); display: block; cursor: pointer; }
+        .cart-sidebar { height: 100%; width: 0; position: fixed; z-index: 2100; top: 0; right: 0; background-color: #fff; transition: 0.3s ease; display: flex; flex-direction: column; overflow: hidden; box-shadow: -5px 0 20px rgba(0,0,0,0.1); }
+        .cart-header { padding: 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
+        .cart-body { flex: 1; overflow-y: auto; padding: 10px; }
+        .cart-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f9f9f9; align-items: center; }
+        .cart-item img { width: 50px; height: 65px; object-fit: cover; border-radius: 4px; }
+
+        /* 商品展示區 */
+        .main-content { padding-top: 70px; min-height: 100vh; }
+        .view-section { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+        .product-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 20px; padding: 0 4px; }
+        .product-card { background: white; text-align: left; cursor: pointer; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+        .img-container { width: 100%; aspect-ratio: 4 / 5; overflow: hidden; background: #f9f9f9; position: relative; }
+        .product-card img { width: 100%; height: 100%; object-fit: cover; }
+        .product-card .card-info { padding: 8px 10px 10px; }
+        .product-card .card-name { font-size: 12px; color: #3e2723; line-height: 1.4; margin-bottom: 3px; }
+        .product-card .card-price { font-size: 12px; font-weight: 700; color: #3e2723; }
+        @media screen and (min-width: 768px) {
+            .product-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 0; }
+            .product-card .card-name { font-size: 14px; }
+            .product-card .card-price { font-size: 14px; }
+        }
+
+        /* 商品詳情 */
+        .detail-view { display: none; padding-top: 40px; }
+        .detail-container { display: flex; flex-wrap: wrap; gap: 50px; text-align: left; }
+        .detail-left { flex: 1.2; min-width: 300px; }
+        .main-img-holder { width: 100%; aspect-ratio: 3 / 4; overflow: hidden; border-radius: 12px; margin-bottom: 15px; background: #f9f9f9; }
+        .main-img-holder img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 數量選擇器 (保留你指定的顏色樣式) */
+        .qty-box { display: flex; align-items: center; border: 1px solid #ddd; border-radius: 4px; width: fit-content; margin-top: 5px; }
+        .qty-box button { padding: 5px 12px; border: none; background: none; cursor: pointer; font-size: 18px; }
+        .qty-box input { width: 40px; text-align: center; border: none; border-left: 1px solid #ddd; border-right: 1px solid #ddd; outline: none; background: transparent; -moz-appearance: textfield; }
+        .qty-box input::-webkit-outer-spin-button, .qty-box input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* 結帳明細 (PNG 輸出優化) */
+        #checkout-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 4000; overflow-y: auto; padding: 40px 20px; }
+        .checkout-container { max-width: 500px; margin: 0 auto; background: #fff; padding: 30px; border: 1px solid #eee; }
+        .receipt-item { display: flex; gap: 15px; margin-bottom: 15px; border-bottom: 1px dashed #f0f0f0; padding-bottom: 15px; }
+        .receipt-item img { width: 70px; height: 90px; object-fit: cover; border-radius: 4px; }
+        .info-row { display: flex; margin-bottom: 12px; align-items: center; }
+        .info-label { width: 100px; color: #888; }
+        .info-input { border: none; border-bottom: 1px solid #eee; width: 100%; outline: none; padding: 4px 0; font-family: inherit; }
+        .export-text { display: none; color: var(--text-dark); border-bottom: 1px solid transparent; }
+
+        /* 按鈕 */
+        .btn-primary { background: var(--text-dark); color: white; padding: 12px 24px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; }
+        .btn-secondary { background: #f2f2f2; color: var(--text-dark); padding: 12px 24px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; width: 100%; }
+        
+        .modal { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 88vh; overflow-y: auto; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-size: 13px; margin-bottom: 4px; font-weight: 700; }
+        .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+    <header class="top-navbar">
+        <div class="nav-left" onclick="showSection('home')">
+            <img id="main-logo" src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo_%E9%80%8F%E6%98%8E.png" class="logo-display" alt="Logo">
+            <span>ももコ・もも購</span>
+        </div>
+        <div class="nav-right">
+            <div class="cart-btn-wrapper" onclick="toggleCart(true)">
+                <i class="fa-solid fa-cart-shopping"></i>
+                <span class="cart-count" id="cart-badge">0</span>
+            </div>
+            <button class="hamburger-btn" onclick="toggleNav(true)"><i class="fa-solid fa-bars"></i></button>
+        </div>
+    </header>
+
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:20px;">商品設定</h3>
+            <input type="hidden" id="edit-id">
+            <div class="form-group">
+    <label>大分類</label>
+    <div style="display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+        <button type="button" id="btn-cat-jp"
+                onclick="selectMainCat('🇯🇵 選物')" 
+                style="font-size: 11px; padding: 6px 12px; border: 1px solid #8d6e63; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+            🇯🇵 選物
+        </button>
+        <button type="button" id="btn-cat-used"
+                onclick="selectMainCat('二手衣')" 
+                style="font-size: 11px; padding: 6px 12px; border: 1px solid #8d6e63; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+            二手衣
+        </button>
+        <button type="button" id="btn-cat-hook"
+                onclick="selectMainCat('勾來勾去')" 
+                style="font-size: 11px; padding: 6px 12px; border: 1px solid #8d6e63; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+            勾來勾去
+        </button>
+    </div>
+
+    <!-- 🇯🇵選物 子分類（預設隱藏） -->
+    <div id="sub-cat-group" style="display: none; margin-top: 12px;">
+        <label style="font-size: 12px; color: #888; display:block; margin-bottom:6px;">選物細分類型</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" id="btn-sub-clothing"
+                    onclick="selectSubCat('🇯🇵 選物 | Clothing 衣物')"
+                    style="font-size: 11px; padding: 5px 10px; border: 1px solid #ccc; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+                👗 衣物
+            </button>
+            <button type="button" id="btn-sub-accessories"
+                    onclick="selectSubCat('🇯🇵 選物 | Accessories 飾品')"
+                    style="font-size: 11px; padding: 5px 10px; border: 1px solid #ccc; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+                💍 飾品
+            </button>
+            <button type="button" id="btn-sub-goods"
+                    onclick="selectSubCat('🇯🇵 選物 | Goods 小物')"
+                    style="font-size: 11px; padding: 5px 10px; border: 1px solid #ccc; background: #fff; border-radius: 20px; cursor: pointer; transition: all 0.2s;">
+                🎀 小物
+            </button>
+        </div>
+    </div>
+
+    <!-- 目前選中的分類顯示 -->
+    <div id="selected-cat-display" style="margin-top: 10px; padding: 8px 12px; background: #fdf6f0; border-radius: 8px; font-size: 12px; color: #8d6e63; display: none;">
+        已選：<strong id="selected-cat-text"></strong>
+    </div>
+
+    <input type="hidden" id="form-cat">
+</div>
+            <div class="form-group"><label>圖片網址 (多張請用逗號隔開)</label><textarea id="form-img" rows="3"></textarea></div>
+            <div class="form-group"><label>商品名稱</label><input type="text" id="form-name"></div>
+            <div class="form-group"><label>價格</label><input type="text" id="form-price"></div>
+            <div class="form-group"><label>顏色 (用逗號隔開)</label><input type="text" id="form-colors" placeholder="如：米白,黑色"></div>
+            <div class="form-group"><label>尺寸 (用逗號隔開)</label><input type="text" id="form-sizes" placeholder="如：S,M,L"></div>
+            <div class="form-group"><label>描述</label><textarea id="form-desc" rows="3"></textarea></div>
+            <div style="text-align:right; display: flex; gap: 10px;">
+                <button onclick="closeModal()" class="btn-secondary">取消</button>
+                <button onclick="saveProduct()" class="btn-primary">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注意事項編輯 Modal -->
+    <div id="noticeModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:15px;">編輯注意事項</h3>
+            <input type="hidden" id="notice-edit-id">
+            <div class="form-group"><label>標題</label><input type="text" id="notice-form-title"></div>
+            <div class="form-group"><label>內容</label><textarea id="notice-form-body" rows="4"></textarea></div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
+                <button onclick="closeNoticeModal()" class="btn-secondary">取消</button>
+                <button onclick="saveNotice()" class="btn-primary">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#ffffff; z-index:4000; overflow-y:auto; padding:40px 20px;">
+        <div class="checkout-container" id="receipt-capture">
+            <h2 style="text-align:center; margin-bottom:20px;">結帳明細</h2>
+            <div id="checkout-items-list"></div>
+            <div style="text-align:right; font-weight:700; font-size:18px; margin:20px 0; border-top:2px solid #3e2723; padding-top:10px;">
+                總金額 <span id="checkout-final-total">NT$ 0</span>
+            </div>
+            <div style="border-top:1px solid #eee; padding-top:20px;">
+                <div style="font-weight:700; margin-bottom:15px;">購買人資訊</div>
+                <div class="info-row"><span class="info-label">姓名</span><input type="text" id="buyer-name" class="info-input" placeholder="請填寫"><span id="text-name" class="export-text"></span></div>
+                <div class="info-row"><span class="info-label">電話</span><input type="tel" id="buyer-phone" class="info-input" placeholder="請填寫"><span id="text-phone" class="export-text"></span></div>
+                <div class="info-row"><span class="info-label">7-11 店名</span><input type="text" id="buyer-store-name" class="info-input" placeholder="請填寫"><span id="text-store-name" class="export-text"></span></div>
+                <div class="info-row"><span class="info-label">7-11 店號</span><input type="text" id="buyer-store-id" class="info-input" placeholder="請填寫"><span id="text-store-id" class="export-text"></span></div>
+                <div class="info-row"><span class="info-label">Email</span><input type="email" id="buyer-email" class="info-input" placeholder="請填寫"><span id="text-email" class="export-text"></span></div>
+                <div class="info-row"><span class="info-label">IG / Line ID</span><input type="text" id="buyer-id" class="info-input" placeholder="請填寫"><span id="text-id" class="export-text"></span></div>
+            </div>
+        </div>
+        <div style="max-width:500px; margin: 25px auto; display:flex; flex-direction:column; gap:10px;">
+            <button class="btn-primary" onclick="exportToPng()">確認並下載明細</button>
+            <button class="btn-secondary" onclick="closeCheckout()">返回修改</button>
+        </div>
+    </div>
+
+    <!-- 付款頁面 -->
+    <div id="payment-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#ffffff; z-index:9999; overflow-y:auto; padding:40px 20px;">
+        <div style="max-width:500px; width:100%; margin:0 auto; text-align:center; padding-top:60px;">
+            <div style="font-size:40px; margin-bottom:16px;">🧾</div>
+            <h2 style="font-size:22px; font-weight:700; color:#3e2723; margin-bottom:10px;">付款頁面</h2>
+            <p style="font-size:14px; color:#888; line-height:2; margin-bottom:32px;">
+                明細已下載完成！<br>
+                請填寫表單並上傳明細截圖完成訂單 🙏<br>
+                <span style="color:#d32f2f; font-size:10px;">✽</span> 匯款完成並填寫表單才算是成功下單呦<br>
+                <span style="color:#d32f2f; font-size:10px;">✽</span> 請確認已閱讀過
+                <span onclick="document.getElementById('payment-overlay').style.display='none'; closeCheckout(); showSection('notice');" 
+                      style="text-decoration:underline; cursor:pointer; color:#8d6e63;">注意事項</span>
+            </p>
+            <a href="https://forms.gle/Y6bbNwufBsKBp6bF7" target="_blank"
+               style="display:block; width:100%; padding:16px; background:#3e2723; color:#fff; border-radius:10px; font-size:16px; font-weight:700; text-decoration:none; margin-bottom:12px;">
+                前往填寫表單 →
+            </a>
+            <button onclick="document.getElementById('payment-overlay').style.display='none'; closeCheckout();"
+                    style="width:100%; padding:14px; background:#f5f0eb; color:#3e2723; border:none; border-radius:10px; font-size:14px; cursor:pointer;">
+                返回首頁
+            </button>
+        </div>
+    </div>
+
+    <div id="cartSidebar" class="cart-sidebar">
+        <div class="cart-header">
+            <span>購物清單</span>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span onclick="clearCart()" style="font-size:11px; color:#aaa; cursor:pointer; text-decoration:underline;">一鍵清空</span>
+                <i class="fa-solid fa-xmark" onclick="toggleCart(false)" style="cursor:pointer;"></i>
+            </div>
+        </div>
+        <div id="cart-body" class="cart-body"></div>
+        <div style="padding: 20px; border-top: 1px solid var(--line);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-weight:700;"><span>總計</span><span id="cart-total">NT$ 0</span></div>
+            <button class="btn-primary" onclick="openCheckout()">前往結帳</button>
+        </div>
+    </div>
+
+    <div id="overlay" class="menu-overlay" onclick="closeAll()"></div>
+
+    <nav id="mySidenav" class="side-menu">
+        <a onclick="showSection('home'); toggleNav(false);">首頁</a>
+        
+        <div class="menu-group">
+            <a onclick="toggleSubMenu()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+               ももコ｜ 🇯🇵 日本選物 <span id="menu-arrow" style="transition: 0.3s; font-size: 10px;">▼</span>
+            </a>
+            <div id="sub-menu-items" style="display: none; background-color: #fcfcfc;">
+                <a onclick="showSection('shop', '🇯🇵 選物 | Clothing 衣物'); toggleNav(false);" style="padding-left: 60px; font-size: 14px; color:#666;">- Clothing 衣物</a>
+                <a onclick="showSection('shop', '🇯🇵 選物 | Accessories 飾品'); toggleNav(false);" style="padding-left: 60px; font-size: 14px; color:#666;">- Accessories 飾品 
+</a>
+                <a onclick="showSection('shop', '🇯🇵 選物 | Goods 小物'); toggleNav(false);" style="padding-left: 60px; font-size: 14px; color:#666;">- Goods 小物</a>
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 40px;">
+        <a onclick="showSection('shop', '勾來勾去'); toggleNav(false);">ももコ｜🧶 勾來勾去</a>
+        <a onclick="showSection('shop', '二手衣'); toggleNav(false);">ももコ｜二手衣</a>
+    
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 40px;">
+        <a onclick="showSection('how-to-buy'); toggleNav(false);">購買方法</a>
+        <a onclick="showSection('notice'); toggleNav(false);">注意事項</a>
+        <a id="admin-btn" onclick="adminAction()" style="font-size: 11px; margin-top: 50px; color: #bbb;">管理員登入</a>
+    </nav>
+
+    <main class="main-content">
+        <section id="view-home" class="view-section" style="text-align: center;">
+            <img id="hero-logo" src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo_%E9%80%8F%E6%98%8E.png" style="width:140px; margin-bottom:20px; border-radius:10px;">
+            <h1>ももコ・もも購</h1>
+            <p>太多的東西・有時選物</p>
+
+            <p style="margin-top: 22px; font-size: 14px; color: #8d6e63; line-height: 2;">
+                🇯🇵 日本代購｜鉤織小物｜Second-hand<br>
+                ☁ 最奇怪ㄉ複合式小店 ☁<br>
+                但希望大家開心逛u ✶ 開心買u ✶
+            </p>
+
+            <p style="margin-top: 24px; font-size: 13px; color: #aaa; line-height: 1.9; padding: 14px 20px; background: #ede8e3; border-radius: 10px; display: inline-block;">
+                購買前請先閱讀
+                <span onclick="showSection('how-to-buy')" style="color:#8d6e63; font-weight:700; cursor:pointer; text-decoration: underline;">購買方法</span>
+                以及
+                <span onclick="showSection('notice')" style="color:#8d6e63; font-weight:700; cursor:pointer; text-decoration: underline;">注意事項</span>
+                🙏
+            </p>
+
+            <div style="display: flex; justify-content: center; gap: 28px; margin-top: 20px;">
+                <a href="https://www.instagram.com/momo.oko._?igsh=aGlhM2NocHBwMTAy&utm_source=qr" target="_blank" style="text-decoration:none; color:#3e2723;">
+                    <i class="fa-brands fa-instagram" style="font-size:16px;"></i>
+                </a>
+                <a href="https://lin.ee/VE10qBb" target="_blank" style="text-decoration:none; color:#3e2723;">
+                    <i class="fa-brands fa-line" style="font-size:16px;"></i>
+                </a>
+                <a href="https://line.me/ti/g2/0IFXHEWfn9AoVkBSLmiRBBYi1N1hHcOhUH_S-A?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" style="text-decoration:none; color:#3e2723;">
+                    <i class="fa-solid fa-users" style="font-size:16px;"></i>
+                </a>
+            </div>
+
+            <!-- 首頁輪播 -->
+            <div style="position:relative; margin-top:28px;">
+                <div id="home-carousel" style="position:relative; width:100%; max-width:500px; margin:0 auto; border-radius:14px; overflow:hidden; aspect-ratio:4/5;">
+                    <div id="carousel-track" style="display:flex; transition:transform 0.4s ease; height:100%;">
+                        <img src="https://github.com/irenetong126-hash/test123/blob/main/IMG_0317.JPG?raw=true" style="min-width:100%; height:100%; object-fit:cover;">
+                        <img src="https://github.com/irenetong126-hash/test123/blob/main/IMG_0316.JPG?raw=true" style="min-width:100%; height:100%; object-fit:cover;">
+                        <img src="https://github.com/irenetong126-hash/test123/blob/main/IMG_0318.JPG?raw=true" style="min-width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <button onclick="carouselMove(-1)" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.7); border:none; border-radius:50%; width:32px; height:32px; font-size:14px; cursor:pointer;">‹</button>
+                    <button onclick="carouselMove(1)" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.7); border:none; border-radius:50%; width:32px; height:32px; font-size:14px; cursor:pointer;">›</button>
+                    <div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:6px;">
+                        <span id="dot-0" style="width:6px; height:6px; border-radius:50%; background:#fff; opacity:1; display:inline-block;"></span>
+                        <span id="dot-1" style="width:6px; height:6px; border-radius:50%; background:#fff; opacity:0.4; display:inline-block;"></span>
+                        <span id="dot-2" style="width:6px; height:6px; border-radius:50%; background:#fff; opacity:0.4; display:inline-block;"></span>
+                    </div>
+                </div>
+                <!-- 管理員換圖按鈕 -->
+                <div id="carousel-edit-btn" style="display:none; margin-top:10px;">
+                    <button onclick="openCarouselModal()" style="background:#3e2723; color:#fff; border:none; padding:8px 16px; border-radius:8px; font-size:12px; cursor:pointer;">✏️ 更換輪播照片</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 輪播編輯 Modal -->
+        <div id="carouselModal" class="modal">
+            <div class="modal-content">
+                <h3 style="margin-bottom:15px;">更換輪播照片</h3>
+                <p style="font-size:12px; color:#aaa; margin-bottom:12px;">每行一個圖片網址，最多可放 5 張</p>
+                <div class="form-group"><label>第 1 張網址</label><input type="text" id="c-img-0"></div>
+                <div class="form-group"><label>第 2 張網址</label><input type="text" id="c-img-1"></div>
+                <div class="form-group"><label>第 3 張網址</label><input type="text" id="c-img-2"></div>
+                <div class="form-group"><label>第 4 張網址（選填）</label><input type="text" id="c-img-3"></div>
+                <div class="form-group"><label>第 5 張網址（選填）</label><input type="text" id="c-img-4"></div>
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:12px;">
+                    <button onclick="closeCarouselModal()" class="btn-secondary">取消</button>
+                    <button onclick="saveCarousel()" class="btn-primary">儲存</button>
+                </div>
+            </div>
+        </div>
+
+        <section id="view-shop" class="view-section" style="display: none;">
+            <h2 id="current-cat" style="text-align: center; margin-bottom: 20px;">所有商品</h2>
+
+            <!-- 二手衣專屬橫幅，只在二手衣頁面顯示 -->
+            <div id="used-clothes-banner" style="display:none; text-align:center; margin-bottom: 30px;">
+                <a href="https://myship.7-11.com.tw/general/detail/GM2502032009290" target="_blank"
+                   style="display: inline-block; padding: 18px 32px; background: #3e2723; color: white; border-radius: 12px; text-decoration: none; font-size: 17px; font-weight: 700; letter-spacing: 0.1em; box-shadow: 0 4px 15px rgba(62,39,35,0.25); transition: opacity 0.2s;"
+                   onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+                    二手衣這邊請 →
+                </a>
+                <p style="margin-top: 12px; font-size: 12px; color: #aaa;">點擊前往賣貨便賣場</p>
+            </div>
+
+            <div class="product-grid" id="product-list">
+                <div id="admin-add" class="product-card" style="display:none; border:2px dashed #ddd; border-radius:12px; aspect-ratio:4/5; align-items:center; justify-content:center; cursor:pointer; background:#fafafa;" onclick="openModal()"><i class="fa-solid fa-plus" style="font-size:24px; color:#ccc;"></i></div>
+            </div>
+        </section>
+
+        <section id="view-detail" class="view-section detail-view"></section>
+        
+       <section id="view-how-to-buy" class="view-section" style="display: none;">
+         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 15px; margin-bottom: 20px; border-left: 5px solid #ccc; text-align: center; line-height: 1.8;">
+    <h2 style="text-align: center; margin-bottom: 20px; font-size: 18px;">購買方法</h2>
+        <p style="font-size: 13px; color: #555; margin-bottom: 6px;"><span style="color:#6bb2c4;">✦</span> 將喜歡想購買的商品加入購物車</p>
+        <p style="font-size: 13px; color: #555; margin-bottom: 6px;"><span style="color:#6bb2c4;">✦</span> 點選前往結帳至購買明細，輸入資料後儲存明細</p>
+        <p style="font-size: 13px; color: #555; margin-bottom: 6px;"><span style="color:#6bb2c4;">✦</span> 將明細儲存下來並填寫表單及付款</p>
+        <p style="font-size: 13px; color: #555; margin-bottom: 16px;"><span style="color:#6bb2c4;">✦</span> 付款完成後才算是成功下單呦！</p>
+        <p style="font-size: 13px; color: #8d6e63; margin-bottom: 6px;">✨️✨ 希望大家逛ㄉ開心買ㄉ開心 ✨️✨</p>
+        
+        <div style="display: flex; justify-content: center; gap: 40px; margin-top: 28px;">
+            <a href="https://www.instagram.com/momo.oko._?igsh=aGlhM2NocHBwMTAy&utm_source=qr" target="_blank" style="color: #3e2723; font-size: 28px;">
+                <i class="fa-brands fa-instagram"></i>
+            </a>
+            <a href="https://lin.ee/VE10qBb" target="_blank" style="color: #3e2723; font-size: 28px;">
+                <i class="fa-brands fa-line"></i>
+            </a>
+        </div>
+    </div>
+</section>
+        <section id="view-notice" class="view-section" style="display: none;">
+    <h2 style="text-align: center; margin-bottom: 30px; font-size: 22px;">注意事項</h2>
+    <div id="notice-list"></div>
+</section>
+    </main>
+
+    <footer style="background: #f5f0eb; border-top: 1px solid #e8e0d8; padding: 48px 20px 32px; text-align: center;">
+        <img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo_%E9%80%8F%E6%98%8E.png" style="width: 55px; height: 55px; border-radius: 50%; object-fit: cover; margin-bottom: 16px; background: #fff;">
+        <p style="font-size: 15px; letter-spacing: 0.15em; color: #3e2723; margin-bottom: 6px;">も も コ ・ も も 購</p>
+        <p style="font-size: 13px; color: #aaa; margin-bottom: 24px;">最奇怪ㄉ複合式小店</p>
+
+        <div style="display: flex; justify-content: center; align-items: center; gap: 0; margin-bottom: 20px;">
+            <a href="https://www.instagram.com/momo.oko._?igsh=aGlhM2NocHBwMTAy&utm_source=qr" target="_blank" style="font-size: 13px; color: #8d6e63; text-decoration: none; padding: 0 20px;">Instagram</a>
+            <span style="color: #ddd;">|</span>
+            <span onclick="showSection('how-to-buy')" style="font-size: 13px; color: #8d6e63; cursor: pointer; padding: 0 20px;">購買方法</span>
+            <span style="color: #ddd;">|</span>
+            <span onclick="showSection('notice')" style="font-size: 13px; color: #8d6e63; cursor: pointer; padding: 0 20px;">注意事項</span>
+        </div>
+
+        <div style="display: flex; justify-content: center; gap: 24px; margin-bottom: 32px;">
+            <a href="https://www.instagram.com/momo.oko._?igsh=aGlhM2NocHBwMTAy&utm_source=qr" target="_blank" style="color: #8d6e63; text-decoration: none;">
+                <i class="fa-brands fa-instagram" style="font-size: 16px;"></i>
+            </a>
+            <a href="https://lin.ee/VE10qBb" target="_blank" style="color: #8d6e63; text-decoration: none;">
+                <i class="fa-brands fa-line" style="font-size: 16px;"></i>
+            </a>
+            <a href="https://line.me/ti/g2/0IFXHEWfn9AoVkBSLmiRBBYi1N1hHcOhUH_S-A?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" style="color: #8d6e63; text-decoration: none;">
+                <i class="fa-solid fa-users" style="font-size: 16px;"></i>
+            </a>
+        </div>
+
+        <p style="font-size: 11px; color: #ccc; letter-spacing: 0.05em;">© 2025 ももコ・もも購. All rights reserved.</p>
+    </footer>
+
+    <script>
+        let isAdmin = false; 
+        let currentCategory = ""; 
+        let cart = JSON.parse(localStorage.getItem('momoko_cart') || '[]');
+
+        // Firebase 資料（由 onSnapshot 即時更新）
+        window._products = [];
+        window._notices = [];
+
+        // 等待 Auth 初始化完成
+        window._onAuthReady = function(user) {
+            isAdmin = !!user;
+            const btn = document.getElementById('admin-btn');
+            if (btn) btn.innerText = user ? "退出管理員" : "管理員登入";
+            renderProducts();
+            renderNotices();
+        };
+
+        const defaultNotices = [
+            { id: 'default1', title: '有關 🇯🇵 選物下單', body: '代購商品需先付清款項，下單後不接受取消與退換貨。日本商品流動快，如遇缺貨將全額退款。', order: 1 },
+            { id: 'default2', title: '有關 勾織小物 🧶', body: '全手工製作，每件商品可能會有微小差異。製作時間約 7-14 個工作天，不接急單喔！', order: 2 },
+            { id: 'default3', title: '有關 second-hand clothes', body: '二手衣物皆有使用痕跡，購買前請詳閱照片說明。售出後恕不退換，請完美主義者繞道。', order: 3 }
+        ];
+
+        function getNotices() {
+            return (window._notices && window._notices.length > 0) ? window._notices : defaultNotices;
+        }
+
+        function renderNotices() {
+            const list = document.getElementById('notice-list');
+            if (!list) return;
+            const notices = getNotices();
+            list.innerHTML = notices.map(n => `
+                <div style="background:#f5f5f5; padding:25px; border-radius:15px; margin-bottom:20px; border-left:5px solid #ccc; position:relative;">
+                    ${isAdmin ? `
+                        <div style="position:absolute; top:12px; right:12px; display:flex; gap:6px;">
+                            <button onclick="openNoticeModal('${n.id}')" style="background:#3e2723; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer;">編輯</button>
+                            <button onclick="deleteNotice('${n.id}')" style="background:#d32f2f; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:11px; cursor:pointer;">刪除</button>
+                        </div>` : ''}
+                    <h3 style="margin-bottom:10px; font-size:18px;">${n.title}</h3>
+                    <p style="font-size:14px; color:#555; white-space:pre-line;">${n.body}</p>
+                </div>
+            `).join('');
+            if (isAdmin) {
+                list.innerHTML += `
+                    <div onclick="openNoticeModal()" style="border:2px dashed #ddd; border-radius:15px; padding:25px; text-align:center; cursor:pointer; color:#bbb; margin-bottom:20px;">
+                        <i class="fa-solid fa-plus"></i> 新增注意事項
+                    </div>`;
+            }
+        }
+
+        function openNoticeModal(id = null) {
+            document.getElementById('noticeModal').style.display = 'flex';
+            if (id) {
+                const n = getNotices().find(i => i.id === id);
+                document.getElementById('notice-edit-id').value = n.id;
+                document.getElementById('notice-form-title').value = n.title;
+                document.getElementById('notice-form-body').value = n.body;
+            } else {
+                document.getElementById('notice-edit-id').value = '';
+                document.getElementById('notice-form-title').value = '';
+                document.getElementById('notice-form-body').value = '';
+            }
+        }
+
+        function closeNoticeModal() { document.getElementById('noticeModal').style.display = 'none'; }
+
+        async function saveNotice() {
+            const title = document.getElementById('notice-form-title').value.trim();
+            const body = document.getElementById('notice-form-body').value.trim();
+            if (!title || !body) return alert('標題和內容不能空白喔！');
+            const id = document.getElementById('notice-edit-id').value;
+            const { collection, addDoc, setDoc, doc } = window._firebase;
+            const db = window._db;
+            try {
+                if (id && !id.startsWith('default')) {
+                    await setDoc(doc(db, "notices", id), { title, body, order: Date.now() });
+                } else {
+                    await addDoc(collection(db, "notices"), { title, body, order: Date.now() });
+                }
+                closeNoticeModal();
+            } catch(e) { alert('儲存失敗：' + e.message); }
+        }
+
+        async function deleteNotice(id) {
+            if (!confirm('確定刪除這條注意事項嗎？')) return;
+            const { deleteDoc, doc } = window._firebase;
+            try {
+                await deleteDoc(doc(window._db, "notices", id));
+            } catch(e) { alert('刪除失敗：' + e.message); }
+        }
+
+        function toggleNav(o) { document.getElementById("mySidenav").style.width = o ? "300px" : "0"; document.getElementById("overlay").style.display = o ? "block" : "none"; }
+        function toggleCart(o) { document.getElementById("cartSidebar").style.width = o ? "350px" : "0"; document.getElementById("overlay").style.display = o ? "block" : "none"; if(o) renderCart(); }
+        function closeAll() { toggleNav(false); toggleCart(false); closeCheckout(); }
+
+        function toggleSubMenu() {
+            const subMenu = document.getElementById("sub-menu-items");
+            const arrow = document.getElementById("menu-arrow");
+            const isOpen = subMenu.style.display === "block";
+            subMenu.style.display = isOpen ? "none" : "block";
+            arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+            showSection('shop', '🇯🇵 選物');
+        }
+
+        // 管理員：Firebase Auth 登入
+        async function adminAction() {
+            const { signInWithEmailAndPassword, signOut } = window._firebase;
+            const auth = window._auth;
+            if (isAdmin) {
+                await signOut(auth);
+                isAdmin = false;
+                document.getElementById('admin-btn').innerText = "管理員登入";
+                document.getElementById('carousel-edit-btn').style.display = 'none';
+                renderProducts();
+                renderNotices();
+            } else {
+                const email = prompt("管理員 Email：");
+                if (!email) return;
+                const password = prompt("密碼：");
+                if (!password) return;
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                    isAdmin = true;
+                    document.getElementById('admin-btn').innerText = "退出管理員";
+                    document.getElementById('carousel-edit-btn').style.display = 'block';
+                    renderProducts();
+                    renderNotices();
+                } catch(e) {
+                    alert("登入失敗，請確認帳號密碼！");
+                }
+            }
+        }
+
+        function renderProducts() {
+            const list = document.getElementById('product-list');
+            list.querySelectorAll('.product-card:not(#admin-add)').forEach(c => c.remove());
+            const products = window._products || [];
+            products.filter(p => (p.cat || '').includes(currentCategory)).forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.onclick = () => showDetail(p.id);
+                
+                let adminBtns = '';
+                if(isAdmin) {
+                    adminBtns = `
+                        <div style="position:absolute; top:8px; right:8px; z-index:10; display:flex; gap:5px;">
+                            <button onclick="event.stopPropagation(); openModal('${p.id}')" style="background:#3e2723; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer;">編輯</button>
+                            <button onclick="event.stopPropagation(); deleteProduct('${p.id}')" style="background:#d32f2f; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:10px; cursor:pointer;">刪除</button>
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    ${adminBtns}
+                    <div class="img-container"><img src="${p.img.split(',')[0]}" loading="lazy"></div>
+                    <div class="card-info">
+                        <div class="card-name">${p.name}</div>
+                        <div class="card-price">NT$ ${p.price}</div>
+                    </div>
+                `;
+                list.insertBefore(card, document.getElementById('admin-add'));
+            });
+            document.getElementById('admin-add').style.display = isAdmin ? "flex" : "none";
+        }
+
+        /* ── 分類選擇輔助函式 ── */
+        function selectMainCat(cat) {
+            // 重設所有大分類按鈕樣式
+            ['btn-cat-jp','btn-cat-used','btn-cat-hook'].forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn){ btn.style.background='#fff'; btn.style.color='inherit'; btn.style.borderColor='#8d6e63'; }
+            });
+            // 高亮選中的按鈕
+            const map = {'🇯🇵 選物':'btn-cat-jp','二手衣':'btn-cat-used','勾來勾去':'btn-cat-hook'};
+            const btn = document.getElementById(map[cat]);
+            if(btn){ btn.style.background='#3e2723'; btn.style.color='white'; btn.style.borderColor='#3e2723'; }
+
+            // 如果是「🇯🇵 選物」，顯示子分類區；否則直接設定 cat 並隱藏
+            const subGroup = document.getElementById('sub-cat-group');
+            if(cat === '🇯🇵 選物') {
+                subGroup.style.display = 'block';
+                // 重設子分類選取狀態，要求再選一次
+                ['btn-sub-clothing','btn-sub-accessories','btn-sub-goods'].forEach(id => {
+                    const b = document.getElementById(id);
+                    if(b){ b.style.background='#fff'; b.style.color='inherit'; b.style.borderColor='#ccc'; }
+                });
+                setCatDisplay(''); // 清空，等待子分類選取
+                document.getElementById('form-cat').value = '';
+            } else {
+                subGroup.style.display = 'none';
+                document.getElementById('form-cat').value = cat;
+                setCatDisplay(cat);
+            }
+        }
+
+        function selectSubCat(fullCat) {
+            // 高亮子分類按鈕
+            ['btn-sub-clothing','btn-sub-accessories','btn-sub-goods'].forEach(id => {
+                const b = document.getElementById(id);
+                if(b){ b.style.background='#fff'; b.style.color='inherit'; b.style.borderColor='#ccc'; }
+            });
+            const map = {
+                '🇯🇵 選物 | Clothing 衣物': 'btn-sub-clothing',
+                '🇯🇵 選物 | Accessories 飾品': 'btn-sub-accessories',
+                '🇯🇵 選物 | Goods 小物': 'btn-sub-goods'
+            };
+            const b = document.getElementById(map[fullCat]);
+            if(b){ b.style.background='#3e2723'; b.style.color='white'; b.style.borderColor='#3e2723'; }
+
+            document.getElementById('form-cat').value = fullCat;
+            setCatDisplay(fullCat);
+        }
+
+        function setCatDisplay(text) {
+            const display = document.getElementById('selected-cat-display');
+            const label = document.getElementById('selected-cat-text');
+            if(text){ display.style.display='block'; label.innerText=text; }
+            else { display.style.display='none'; }
+        }
+
+        function initModalCat(cat) {
+            // 根據已存的 cat 值，還原選取狀態
+            const jpSubCats = ['🇯🇵 選物 | Clothing 衣物','🇯🇵 選物 | Accessories 飾品','🇯🇵 選物 | Goods 小物'];
+            if(jpSubCats.includes(cat)) {
+                selectMainCat('🇯🇵 選物');
+                selectSubCat(cat);
+            } else if(cat === '二手衣') {
+                selectMainCat('二手衣');
+            } else if(cat === '勾來勾去') {
+                selectMainCat('勾來勾去');
+            } else if(cat && cat.includes('🇯🇵')) {
+                selectMainCat('🇯🇵 選物');
+            }
+        }
+
+        function resetModalCat() {
+            ['btn-cat-jp','btn-cat-used','btn-cat-hook'].forEach(id => {
+                const btn = document.getElementById(id);
+                if(btn){ btn.style.background='#fff'; btn.style.color='inherit'; btn.style.borderColor='#8d6e63'; }
+            });
+            ['btn-sub-clothing','btn-sub-accessories','btn-sub-goods'].forEach(id => {
+                const b = document.getElementById(id);
+                if(b){ b.style.background='#fff'; b.style.color='inherit'; b.style.borderColor='#ccc'; }
+            });
+            document.getElementById('sub-cat-group').style.display='none';
+            document.getElementById('selected-cat-display').style.display='none';
+            document.getElementById('form-cat').value='';
+        }
+        /* ── 分類選擇輔助函式結束 ── */
+
+        function openModal(id = null) {
+            document.getElementById('productModal').style.display = 'flex';
+            if (id) {
+                const p = (window._products || []).find(i => i.id === id);
+                document.getElementById('edit-id').value = p.id;
+                document.getElementById('form-img').value = p.img;
+                document.getElementById('form-name').value = p.name;
+                document.getElementById('form-price').value = p.price;
+                document.getElementById('form-colors').value = p.colors || "";
+                document.getElementById('form-sizes').value = p.sizes || "";
+                document.getElementById('form-desc').value = p.desc || "";
+                initModalCat(p.cat);
+            } else {
+                document.getElementById('edit-id').value = "";
+                document.querySelectorAll('#productModal input:not([type=hidden]), #productModal textarea').forEach(i => i.value = "");
+                resetModalCat();
+                if(currentCategory) initModalCat(currentCategory);
+            }
+        }
+
+        function closeModal() { document.getElementById('productModal').style.display = 'none'; }
+
+        async function saveProduct() {
+            const catVal = document.getElementById('form-cat').value;
+            if(!catVal) return alert("請選擇商品分類喔！");
+            const id = document.getElementById('edit-id').value;
+            const data = {
+                cat: catVal,
+                img: document.getElementById('form-img').value,
+                name: document.getElementById('form-name').value,
+                price: document.getElementById('form-price').value,
+                colors: document.getElementById('form-colors').value,
+                sizes: document.getElementById('form-sizes').value,
+                desc: document.getElementById('form-desc').value,
+                updatedAt: Date.now()
+            };
+            const { collection, addDoc, setDoc, doc } = window._firebase;
+            const db = window._db;
+            try {
+                if (id) {
+                    await setDoc(doc(db, "products", id), data);
+                } else {
+                    await addDoc(collection(db, "products"), data);
+                }
+                closeModal();
+            } catch(e) { alert('儲存失敗：' + e.message); }
+        }
+
+        async function deleteProduct(id) {
+            if(confirm("確定刪除此商品嗎？")) {
+                const { deleteDoc, doc } = window._firebase;
+                try {
+                    await deleteDoc(doc(window._db, "products", id));
+                } catch(e) { alert('刪除失敗：' + e.message); }
+            }
+        }
+
+        // 數量更新
+        function updateQty(amt) {
+            const input = document.getElementById('qty-val');
+            let val = parseInt(input.value) + amt;
+            if(val < 1) val = 1;
+            input.value = val;
+        }
+
+        // 詳情頁面
+        function showDetail(id) {
+            const p = (window._products || []).find(i => i.id === id);
+            document.getElementById('view-shop').style.display = 'none';
+            document.getElementById('view-home').style.display = 'none';
+            const detailSec = document.getElementById('view-detail');
+            detailSec.style.display = 'block';
+            
+            const imgs = p.img.split(',').map(s => s.trim());
+            const colorOpt = p.colors ? p.colors.split(',').map(c => `<option value="${c.trim()}">${c.trim()}</option>`).join('') : '';
+            const sizeOpt = p.sizes ? p.sizes.split(',').map(s => `<option value="${s.trim()}">${s.trim()}</option>`).join('') : '';
+
+            const thumbs = imgs.length > 1 ? `
+                <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                    ${imgs.map((src, i) => `
+                        <img src="${src}" 
+                             onclick="document.getElementById('main-detail-img').src='${src}'; document.querySelectorAll('.thumb-img').forEach(t=>t.style.borderColor='#eee'); this.style.borderColor='#3e2723';"
+                             class="thumb-img"
+                             style="width:60px; height:75px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${i===0?'#3e2723':'#eee'};">
+                    `).join('')}
+                </div>` : '';
+
+            detailSec.innerHTML = `
+                <div onclick="showSection('shop', currentCategory)" style="cursor:pointer; margin-bottom:20px; font-size:14px;"><i class="fa-solid fa-arrow-left"></i> 返回</div>
+                <div class="detail-container">
+                    <div class="detail-left">
+                        <div class="main-img-holder"><img id="main-detail-img" src="${imgs[0]}"></div>
+                        ${thumbs}
+                    </div>
+                    <div class="detail-right">
+                        <h2 style="font-size:24px;">${p.name}</h2>
+                        <div style="font-size:22px; font-weight:700; margin:15px 0;">NT$ ${p.price}</div>
+                        
+                        ${p.colors ? `<div style="margin-bottom:15px;"><label style="font-size:13px; font-weight:700; display:block; margin-bottom:5px;">顏色</label><select id="sel-color" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">${colorOpt}</select></div>` : `<div style="margin-bottom:15px;"><label style="font-size:13px; font-weight:700; display:block; margin-bottom:5px;">顏色</label><p style="font-size:14px; color:#aaa;">無指定顏色</p></div>`}
+                        ${p.sizes ? `<div style="margin-bottom:15px;"><label style="font-size:13px; font-weight:700; display:block; margin-bottom:5px;">尺寸</label><select id="sel-size" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">${sizeOpt}</select></div>` : `<div style="margin-bottom:15px;"><label style="font-size:13px; font-weight:700; display:block; margin-bottom:5px;">尺寸</label><p style="font-size:14px; color:#aaa;">無指定尺寸</p></div>`}
+                        
+                        <div style="margin-bottom:25px;">
+                            <label style="font-size:13px; font-weight:700; display:block; margin-bottom:5px;">件數</label>
+                            <div class="qty-box">
+                                <button onclick="updateQty(-1)">-</button>
+                                <input type="number" id="qty-val" value="1" readonly>
+                                <button onclick="updateQty(1)">+</button>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-primary" onclick="addToCart('${p.id}')">加入購物車</button>
+                        <div style="margin-top:30px; color:#666; font-size:14px; white-space:pre-line; line-height:1.8;">${p.desc || ""}</div>
+                    </div>
+                </div>
+            `;
+            window.scrollTo(0,0);
+        }
+
+        function addToCart(pid) {
+            const p = (window._products || []).find(i => i.id === pid);
+            cart.push({
+                cartId: Date.now(),
+                name: p.name,
+                price: parseInt(p.price),
+                img: p.img.split(',')[0].trim(),
+                color: document.getElementById('sel-color')?.value || '',
+                size: document.getElementById('sel-size')?.value || '',
+                qty: parseInt(document.getElementById('qty-val').value)
+            });
+            localStorage.setItem('momoko_cart', JSON.stringify(cart));
+            updateBadge(); toggleCart(true);
+        }
+
+        function renderCart() {
+            const body = document.getElementById('cart-body'); body.innerHTML = ''; let total = 0;
+            cart.forEach(item => {
+                total += item.price * item.qty;
+                body.innerHTML += `
+                    <div class="cart-item">
+                        <img src="${item.img}">
+                        <div style="flex:1; font-size:13px;">
+                            <div style="font-weight:700;">${item.name}</div>
+                            <div style="color:#888;">${item.color} ${item.size} / ${item.qty}件</div>
+                            <div style="font-weight:700;">NT$ ${item.price * item.qty}</div>
+                        </div>
+                        <i class="fa-solid fa-trash-can" onclick="removeCart(${item.cartId})" style="cursor:pointer; color:#ccc; padding:5px;"></i>
+                    </div>`;
+            });
+            document.getElementById('cart-total').innerText = `NT$ ${total}`;
+        }
+
+        function openCheckout() {
+            if(cart.length === 0) return alert("購物車是空的喔！");
+            document.getElementById('checkout-overlay').style.display = "block";
+            const list = document.getElementById('checkout-items-list'); list.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                total += item.price * item.qty;
+                const safeImg = item.img + (item.img.includes('?') ? '&' : '?') + 't=' + Date.now();
+                list.innerHTML += `
+                    <div class="receipt-item">
+                        <img src="${safeImg}" crossorigin="anonymous">
+                        <div style="flex:1;">
+                            <div style="font-weight:700; font-size:14px;">${item.name}</div>
+                            <div style="color:#888; font-size:12px;">規格：${item.color || '-'} / ${item.size || '-'}</div>
+                            <div style="font-size:12px;">數量：${item.qty}</div>
+                            <div style="text-align:right; font-weight:700;">NT$ ${item.price * item.qty}</div>
+                        </div>
+                    </div>`;
+            });
+            // 運費
+            list.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px dashed #eee; margin-top:8px; font-size:13px; color:#888;">
+                    <span>7-11 店到店運費</span>
+                    <span>NT$ 60</span>
+                </div>`;
+            document.getElementById('checkout-final-total').innerText = `NT$ ${total + 60}`;
+            toggleCart(false);
+        }
+
+        function exportToPng() {
+            const nv = document.getElementById('buyer-name').value.trim();
+            const pv = document.getElementById('buyer-phone').value.trim();
+            const snv = document.getElementById('buyer-store-name').value.trim();
+            const siv = document.getElementById('buyer-store-id').value.trim();
+            const ev = document.getElementById('buyer-email').value.trim();
+            const iv = document.getElementById('buyer-id').value.trim();
+            if(!nv || !pv || !snv || !siv || !ev || !iv) return alert("請填寫所有購買人資訊喔！");
+
+            document.getElementById('text-name').innerText = nv;
+            document.getElementById('text-phone').innerText = pv;
+            document.getElementById('text-store-name').innerText = snv;
+            document.getElementById('text-store-id').innerText = siv;
+            document.getElementById('text-email').innerText = ev;
+            document.getElementById('text-id').innerText = iv;
+            
+            document.querySelectorAll('.info-input').forEach(e => e.style.display = 'none');
+            document.querySelectorAll('.export-text').forEach(e => e.style.display = 'block');
+
+            const target = document.getElementById('receipt-capture');
+            html2canvas(target, { 
+                useCORS: true, 
+                scale: 3,
+                backgroundColor: "#ffffff",
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `momoko_receipt_${nv}.png`;
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+                
+                document.querySelectorAll('.info-input').forEach(e => e.style.display = 'block');
+                document.querySelectorAll('.export-text').forEach(e => e.style.display = 'none');
+
+                // 顯示付款頁面
+                setTimeout(() => {
+                    document.getElementById('checkout-overlay').style.display = 'none';
+                    document.getElementById('payment-overlay').style.display = 'block';
+                    window.scrollTo(0, 0);
+                }, 800);
+            });
+        }
+
+        function clearCart() {
+            if (!confirm('確定要清空購物車嗎？')) return;
+            cart = [];
+            localStorage.setItem('momoko_cart', JSON.stringify(cart));
+            updateBadge();
+            renderCart();
+        }
+
+        function closeCheckout() { document.getElementById('checkout-overlay').style.display = "none"; }
+        function updateBadge() { document.getElementById('cart-badge').innerText = cart.length; }
+        function removeCart(cid) { cart = cart.filter(i => i.cartId !== cid); localStorage.setItem('momoko_cart', JSON.stringify(cart)); updateBadge(); renderCart(); }
+        
+        function showSection(s, c="") { 
+            document.getElementById('view-home').style.display = s==='home'?'block':'none'; 
+            document.getElementById('view-shop').style.display = s==='shop'?'block':'none'; 
+            document.getElementById('view-how-to-buy').style.display = s==='how-to-buy'?'block':'none';
+            document.getElementById('view-notice').style.display = s==='notice'?'block':'none';
+            if(s==='notice') renderNotices();
+            document.getElementById('view-detail').style.display='none'; 
+            if(s==='shop'){ 
+                currentCategory=c;
+                const titleMap = {
+                    '二手衣': 'ももコ｜二手衣',
+                    '🇯🇵 選物': 'ももコ｜🇯🇵 日本選物',
+                    '🇯🇵 選物 | Clothing 衣物': '🇯🇵 日本選物・Clothing 衣物',
+                    '🇯🇵 選物 | Accessories 飾品': '🇯🇵 日本選物・Accessories 飾品',
+                    '🇯🇵 選物 | Goods 小物': '🇯🇵 日本選物・Goods 小物',
+                    '勾來勾去': 'ももコ｜🧶 勾來勾去',
+                };
+                document.getElementById('current-cat').innerText = titleMap[c] || c; 
+                document.getElementById('used-clothes-banner').style.display = c==='二手衣' ? 'block' : 'none';
+                renderProducts(); 
+            } 
+        }
+
+        // 首頁輪播
+        let carouselIndex = 0;
+        let carouselImgs = [
+            "https://github.com/irenetong126-hash/test123/blob/main/IMG_0317.JPG?raw=true",
+            "https://github.com/irenetong126-hash/test123/blob/main/IMG_0316.JPG?raw=true",
+            "https://github.com/irenetong126-hash/test123/blob/main/IMG_0318.JPG?raw=true"
+        ];
+
+        function renderCarousel() {
+            const track = document.getElementById('carousel-track');
+            if (!track) return;
+            const saved = localStorage.getItem('momoko_carousel');
+            if (saved) carouselImgs = JSON.parse(saved);
+            track.innerHTML = carouselImgs.map(src =>
+                `<img src="${src}" style="min-width:100%; height:100%; object-fit:cover;">`
+            ).join('');
+            // 更新點點數量
+            const dotsContainer = track.parentElement.querySelector('div[style*="bottom:10px"]');
+            if (dotsContainer) {
+                dotsContainer.innerHTML = carouselImgs.map((_, i) =>
+                    `<span id="dot-${i}" style="width:6px; height:6px; border-radius:50%; background:#fff; opacity:${i===0?'1':'0.4'}; display:inline-block;"></span>`
+                ).join('');
+            }
+            carouselIndex = 0;
+        }
+
+        function carouselMove(dir) {
+            carouselIndex = (carouselIndex + dir + carouselImgs.length) % carouselImgs.length;
+            document.getElementById('carousel-track').style.transform = `translateX(-${carouselIndex * 100}%)`;
+            carouselImgs.forEach((_, i) => {
+                const dot = document.getElementById('dot-' + i);
+                if (dot) dot.style.opacity = i === carouselIndex ? '1' : '0.4';
+            });
+        }
+        setInterval(() => carouselMove(1), 3000);
+
+        function openCarouselModal() {
+            document.getElementById('carouselModal').style.display = 'flex';
+            carouselImgs.forEach((src, i) => {
+                const el = document.getElementById('c-img-' + i);
+                if (el) el.value = src;
+            });
+        }
+        function closeCarouselModal() { document.getElementById('carouselModal').style.display = 'none'; }
+        function saveCarousel() {
+            const imgs = [];
+            for (let i = 0; i < 5; i++) {
+                const val = document.getElementById('c-img-' + i)?.value.trim();
+                if (val) imgs.push(val);
+            }
+            if (imgs.length === 0) return alert('請至少填入一張圖片網址！');
+            carouselImgs = imgs;
+            localStorage.setItem('momoko_carousel', JSON.stringify(imgs));
+            renderCarousel();
+            closeCarouselModal();
+        }
+
+        window.onload = function() {
+            updateBadge();
+            renderCarousel();
+        };
+    </script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyB-PFQyZAAo6AajzpkXEcsaQyakFKIaR_8",
+    authDomain: "momoko-shop-app.firebaseapp.com",
+    projectId: "momoko-shop-app",
+    storageBucket: "momoko-shop-app.firebasestorage.app",
+    messagingSenderId: "1031184666626",
+    appId: "1:1031184666626:web:c2b6590aa56fa9c73c171b",
+    measurementId: "G-K9NWWE689H"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+
+</body>
+</html>
