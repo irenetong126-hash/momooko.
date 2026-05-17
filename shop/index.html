@@ -187,7 +187,7 @@ window.saveProdFB = async function(prod, fbId) {
 
 // 刪除商品
 window.delProdFB = async function(fbId) {
-  try { await deleteDoc(doc(db,'momoko_products',String(fbId))); } catch(e) { console.error(e); }
+  await deleteDoc(doc(db,'momoko_products',String(fbId)));
 };
 
 // 刪除訂單
@@ -1853,8 +1853,13 @@ function delProd(id){
   const p=PRODS.find(x=>x.id===id);
   if(!confirm(`確定刪除「${p?.name}」？此操作無法復原`)) return;
   PRODS=PRODS.filter(x=>x.id!==id);delete cart[id];
-  saveP(PRODS);delProdFB(id);
-  renderAList();renderAStatsProds();renderGrid();updCart();showToast('🗑 已刪除');
+  saveP(PRODS);
+  delProdFB(id).then(()=>{
+    renderAList();renderAStatsProds();renderGrid();updCart();showToast('🗑 已刪除');
+  }).catch(e=>{
+    showToast('❌ 刪除失敗：'+e.message);
+    console.error('delProd error:',e);
+  });
 }
 
 /* ── NAV ── */
