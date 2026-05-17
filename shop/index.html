@@ -102,7 +102,7 @@ window.submitOrderFB = async function() {
     // 發送 Email 通知
     try {
       const itemsList = items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join(', ');
-      await window.emailjs.send('service_qidtqgc', 'template_5kxk84m', {
+      await window.emailjs.send('service_qidtqgc', 'template_iuiyfem', {
         name: m.memberId,
         time: new Date().toLocaleString('zh-TW'),
         member_id: m.memberId,
@@ -196,7 +196,7 @@ window.deleteOrderFB = async function(fbId, oi) {
 window.sendOrderEmail = function(order) {
   if(typeof window.emailjs === 'undefined'){console.error('EmailJS 未載入');return;}
   const itemsList = order.items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join('\n');
-  window.emailjs.send('service_qidtqgc', 'template_5kxk84m', {
+  window.emailjs.send('service_qidtqgc', 'template_iuiyfem', {
     name: order.memberId,
     time: new Date().toLocaleString('zh-TW'),
     member_id: order.memberId,
