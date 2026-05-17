@@ -1142,20 +1142,16 @@ input[type=file]{display:none;}
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="form-title">新增商品</div>
     <div class="sheet-body">
-      <label class="flabel">商品照片（可新增多張）</label>
-      <div class="imgs-upload-area">
-        <div class="imgs-main" id="imgs-main" onclick="document.getElementById('img-main-input').click()">
-          <img id="img-main-preview" style="display:none;">
-          <div class="imgs-main-overlay" id="imgs-main-overlay" style="display:none;">📷 點擊更換主圖</div>
-          <div class="imgs-placeholder" id="imgs-main-placeholder"><span>📷</span>點擊選擇主圖</div>
-        </div>
-        <input type="file" id="img-main-input" accept="image/*" onchange="handleMainImg(this)">
-        <div class="imgs-extra" id="imgs-extra">
-          <div class="imgs-add-btn" onclick="document.getElementById('img-extra-input').click()">＋</div>
-        </div>
-        <input type="file" id="img-extra-input" accept="image/*" onchange="handleExtraImg(this)">
+      <label class="flabel">商品圖片網址</label>
+      <div style="margin-bottom:11px;">
+        <input class="finput" id="img-url-1" placeholder="圖片網址 1（主圖）" style="margin-bottom:6px;" oninput="previewImgUrl(1)">
+        <div id="img-preview-1" style="display:none;width:100%;height:120px;border-radius:10px;overflow:hidden;margin-bottom:6px;"><img id="img-preview-img-1" style="width:100%;height:100%;object-fit:cover;"></div>
+        <input class="finput" id="img-url-2" placeholder="圖片網址 2（選填）" style="margin-bottom:6px;" oninput="previewImgUrl(2)">
+        <div id="img-preview-2" style="display:none;width:100%;height:80px;border-radius:10px;overflow:hidden;margin-bottom:6px;"><img id="img-preview-img-2" style="width:100%;height:100%;object-fit:cover;"></div>
+        <input class="finput" id="img-url-3" placeholder="圖片網址 3（選填）" oninput="previewImgUrl(3)">
+        <div id="img-preview-3" style="display:none;width:100%;height:80px;border-radius:10px;overflow:hidden;margin-top:6px;"><img id="img-preview-img-3" style="width:100%;height:100%;object-fit:cover;"></div>
       </div>
-      <label class="flabel">或選擇 Emoji（沒有照片時顯示）</label>
+      <label class="flabel">或選擇 Emoji（沒有圖片時顯示）</label>
       <div class="emoji-grid" id="emoji-grid"></div>
       <label class="flabel">商品名稱</label>
       <input class="finput" id="f-name" placeholder="例：龍角散喉糖（薄荷）">
@@ -1680,9 +1676,9 @@ function saveOrderProg(oi){
 }
 
 /* ── PRODUCT FORM ── */
-let editId=null,selE='🛍',isLow=false,mainImg='',extraImgs=[];
+let editId=null,selE='🛍',isLow=false;
 function openProdForm(id){
-  editId=id;isLow=false;selE='🛍';mainImg='';extraImgs=[];
+  editId=id;isLow=false;selE='🛍';
   resetImgUI();
   document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
   document.getElementById('form-title').textContent=id?'編輯商品':'新增商品';
@@ -1693,58 +1689,35 @@ function openProdForm(id){
     const p=PRODS.find(x=>x.id===id);
     if(p){
       selE=p.emoji;isLow=p.low;
-      const imgs=p.imgs||[];mainImg=imgs[0]||'';extraImgs=imgs.slice(1);
       document.getElementById('f-name').value=p.name;document.getElementById('f-store').value=p.store;
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock;document.getElementById('f-desc').value=p.desc||'';
       document.getElementById('f-cat').value=p.cat;
       if(p.low)document.getElementById('low-tog').classList.add('on');
-      if(mainImg)setMainImgUI(mainImg);
-      refreshExtraImgs();
+      const imgs = p.imgs || [];
+      [1,2,3].forEach((n,i)=>{
+        const url = imgs[i] || '';
+        document.getElementById(`img-url-${n}`).value = url;
+        previewImgUrl(n);
+      });
       document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
     }
   }
   document.getElementById('prod-form-sheet').classList.add('show');
 }
+function previewImgUrl(n){
+  const url = document.getElementById(`img-url-${n}`).value.trim();
+  const preview = document.getElementById(`img-preview-${n}`);
+  const img = document.getElementById(`img-preview-img-${n}`);
+  if(url){preview.style.display='block';img.src=url;}
+  else{preview.style.display='none';}
+}
 function resetImgUI(){
-  document.getElementById('img-main-preview').style.display='none';
-  document.getElementById('img-main-preview').src='';
-  document.getElementById('imgs-main-placeholder').style.display='flex';
-  document.getElementById('imgs-main-overlay').style.display='none';
-  document.getElementById('imgs-main').classList.remove('has-img');
-  document.getElementById('img-main-input').value='';
-  document.getElementById('img-extra-input').value='';
-  refreshExtraImgs();
+  [1,2,3].forEach(n=>{
+    document.getElementById(`img-url-${n}`).value='';
+    document.getElementById(`img-preview-${n}`).style.display='none';
+  });
 }
-function setMainImgUI(src){
-  document.getElementById('img-main-preview').src=src;
-  document.getElementById('img-main-preview').style.display='block';
-  document.getElementById('imgs-main-placeholder').style.display='none';
-  document.getElementById('imgs-main-overlay').style.display='flex';
-  document.getElementById('imgs-main').classList.add('has-img');
-}
-function handleMainImg(input){
-  if(!input.files||!input.files[0])return;
-  const r=new FileReader();
-  r.onload=e=>{mainImg=e.target.result;setMainImgUI(mainImg);};
-  r.readAsDataURL(input.files[0]);
-}
-function handleExtraImg(input){
-  if(!input.files||!input.files[0])return;
-  const r=new FileReader();
-  r.onload=e=>{extraImgs.push(e.target.result);refreshExtraImgs();input.value='';};
-  r.readAsDataURL(input.files[0]);
-}
-function refreshExtraImgs(){
-  const el=document.getElementById('imgs-extra');
-  const thumbs=extraImgs.map((img,i)=>`
-    <div class="imgs-thumb-item">
-      <img src="${img}">
-      <div class="imgs-thumb-del" onclick="delExtraImg(${i})">✕</div>
-    </div>`).join('');
-  el.innerHTML=thumbs+`<div class="imgs-add-btn" onclick="document.getElementById('img-extra-input').click()">＋</div>`;
-}
-function delExtraImg(i){extraImgs.splice(i,1);refreshExtraImgs();}
 function pickE(e){selE=e;document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.toggle('sel',el.textContent===e));}
 function togLow(){isLow=!isLow;document.getElementById('low-tog').classList.toggle('on',isLow);}
 function saveProd(){
@@ -1756,7 +1729,7 @@ function saveProd(){
   const desc=document.getElementById('f-desc').value.trim();
   const cat=document.getElementById('f-cat').value;
   if(!name||!store||!price||!unit||!stock){showToast('⚠ 請填寫所有必填欄位');return;}
-  const imgs=[...(mainImg?[mainImg]:[]),...extraImgs];
+  const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
   const prod={cat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow};
   if(editId){
     const i=PRODS.findIndex(p=>p.id===editId);
