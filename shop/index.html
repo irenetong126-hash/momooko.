@@ -180,10 +180,13 @@ window.sendOrderEmail = function(order) {
   const itemsList = order.items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join('\n');
   console.log('發送 Email...', order.memberId);
   emailjs.send('service_qidtqgc', 'template_5kxk84m', {
+    name: order.memberId,
+    time: new Date().toLocaleString('zh-TW'),
     member_id: order.memberId,
     items: itemsList,
     total: 'NT$' + order.total.toLocaleString(),
     date: order.date,
+    email: 'momo.oko.55555@gmail.com',
   }).then(()=>console.log('Email 發送成功')).catch(e=>console.error('EmailJS error:', e));
 };
 
