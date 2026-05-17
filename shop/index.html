@@ -42,19 +42,24 @@ onAuthStateChanged(auth, async (user) => {
       window._currentMember = { uid: user.uid, memberId };
     }
     if (memberId === 'M000') {
-      // 管理員直接進後台
       document.getElementById('login-screen').classList.remove('show');
       loadProdsAndCats();
       loadAllOrders();
       openAdmin();
     } else {
+      document.getElementById('login-screen').classList.remove('show');
       showApp(window._currentMember);
       loadMyOrders();
       loadProdsAndCats();
       loadTrip();
     }
   } else {
-    showLoginScreen();
+    // 未登入：直接進入網站，不強制登入
+    window._currentMember = null;
+    document.getElementById('login-screen').classList.remove('show');
+    loadProdsAndCats();
+    loadTrip();
+    showGuestMemberPage();
   }
 });
 
@@ -84,7 +89,11 @@ window.doLogout = async function() {
 
 window.submitOrderFB = async function() {
   const m = window._currentMember;
-  if (!m) { showToast('請先登入'); return; }
+  if (!m) {
+    // 未登入，顯示提示
+    document.getElementById('login-prompt-modal').classList.add('show');
+    return;
+  }
   const tot = Object.entries(cart).reduce((s,[id,q])=>{ const p=PRODS.find(x=>x.id==id); return s+(p?p.price*q:0); }, 0);
   const items = Object.entries(cart).map(([id,q])=>{ const p=PRODS.find(x=>x.id==id); return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty:q,price:p.price*q,step:0,note:''}; });
   const orderData = { memberId: m.memberId, memberName: m.name||m.memberId, phone: m.phone||'', total: tot, items, status:'待確認', createdAt: serverTimestamp() };
@@ -754,6 +763,21 @@ input[type=file]{display:none;}
 </head>
 <body>
 
+<!-- LOGIN PROMPT MODAL -->
+<div class="notif-modal" id="login-prompt-modal">
+  <div class="notif-box">
+    <div class="notif-box-icon">🔐</div>
+    <div class="notif-box-title">需要會員帳號</div>
+    <div class="notif-box-msg">下單需要先登入會員帳號<br>還沒有帳號？聯繫 ももコ 開通！</div>
+    <button class="btn-pri" style="margin-bottom:9px;" onclick="document.getElementById('login-prompt-modal').classList.remove('show');showLoginScreen();">🔑 前往登入</button>
+    <a href="https://lin.ee/Pn0UEfk" target="_blank" class="btn-line-big" style="margin-bottom:9px;text-decoration:none;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12c0 3.3 2.1 6.2 5.3 7.9l-.7 2.6.75.55L10 21.25c.65.07 1.32.11 2 .11 5.52 0 10-4.48 10-9S17.52 2 12 2z"/></svg>
+      聯繫 ももコ 開通帳號
+    </a>
+    <button class="btn-ghost" onclick="document.getElementById('login-prompt-modal').classList.remove('show')">繼續逛逛</button>
+  </div>
+</div>
+
 <!-- NOTIFICATION MODAL -->
 <div class="notif-modal" id="notif-modal">
   <div class="notif-box">
@@ -891,11 +915,26 @@ input[type=file]{display:none;}
     <div class="menu-card">
       <div class="menu-item" onclick="goPage('orders')"><div class="menu-icon" style="background:#fef3c7;">📦</div><div style="flex:1;"><div class="menu-title">我的訂單</div><div class="menu-desc">查看所有喊單記錄</div></div><span class="menu-arrow">›</span></div>
       <div class="menu-item" onclick="openFavsPage()"><div class="menu-icon" style="background:#fee2e2;">❤️</div><div style="flex:1;"><div class="menu-title">收藏商品</div><div class="menu-desc">我的常買清單</div></div><span class="menu-arrow">›</span></div>
-      <div class="menu-item" onclick="doLogout()"><div class="menu-icon" style="background:#fef2f2;">🚪</div><div style="flex:1;"><div class="menu-title">登出</div></div><span class="menu-arrow">›</span></div>
+      <div class="menu-item" id="logout-btn" onclick="doLogout()"><div class="menu-icon" style="background:#fef2f2;">🚪</div><div style="flex:1;"><div class="menu-title">登出</div></div><span class="menu-arrow">›</span></div>
+      <div class="menu-item" id="login-btn-mem" style="display:none;" onclick="showLoginScreen()"><div class="menu-icon" style="background:#eaf5f8;">🔑</div><div style="flex:1;"><div class="menu-title">登入會員</div><div class="menu-desc">登入後即可喊單</div></div><span class="menu-arrow">›</span></div>
     </div>
     <div class="menu-card" id="admin-menu-card" style="display:none;">
       <div class="menu-item" onclick="openAdmin()"><div class="menu-icon" style="background:#1c3640;font-size:15px;">⚙️</div><div style="flex:1;"><div class="menu-title">ももコ後台</div><div class="menu-desc">商品・分類・訂單管理</div></div><span class="menu-arrow" style="color:var(--pri);">›</span></div>
     </div>
+    <a href="https://lin.ee/Pn0UEfk" target="_blank" style="text-decoration:none;">
+      <div class="menu-card">
+        <div class="menu-item">
+          <div class="menu-icon" style="background:#06C755;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12c0 3.3 2.1 6.2 5.3 7.9l-.7 2.6.75.55L10 21.25c.65.07 1.32.11 2 .11 5.52 0 10-4.48 10-9S17.52 2 12 2z"/></svg>
+          </div>
+          <div style="flex:1;">
+            <div class="menu-title" style="color:var(--ink);">私訊 ももコ・もも購</div>
+            <div class="menu-desc">任何問題歡迎私訊我們～</div>
+          </div>
+          <span class="menu-arrow" style="color:#06C755;">›</span>
+        </div>
+      </div>
+    </a>
   </div>
   <div style="height:24px;"></div>
 </div>
@@ -1244,6 +1283,21 @@ let curOrderFilter='all'; // FIX: track active filter
 window.showLoginScreen = function(){
   document.getElementById('login-screen').classList.add('show');
 }
+window.showGuestMemberPage = function(){
+  const el = document.getElementById('mem-av-text');
+  if(el) el.textContent = '？';
+  const nameEl = document.getElementById('mem-name-text');
+  if(nameEl) nameEl.textContent = '尚未登入';
+  const phoneEl = document.getElementById('mem-phone-text');
+  if(phoneEl) phoneEl.textContent = '';
+  const idEl = document.getElementById('mem-id-display');
+  if(idEl) idEl.textContent = '聯繫 ももコ 開通會員帳號';
+  // 顯示登入按鈕，隱藏登出
+  const logoutBtn = document.getElementById('logout-btn');
+  const loginBtn = document.getElementById('login-btn-mem');
+  if(logoutBtn) logoutBtn.style.display = 'none';
+  if(loginBtn) loginBtn.style.display = 'flex';
+}
 window.showApp = function(member){
   document.getElementById('login-screen').classList.remove('show');
   const name = member.name || member.memberId;
@@ -1251,13 +1305,10 @@ window.showApp = function(member){
   document.getElementById('mem-av-text').textContent = initial;
   document.getElementById('mem-name-text').textContent = name;
   document.getElementById('mem-phone-text').textContent = member.phone || '';
-  // topbar-av 保留 logo 圖片，不覆蓋
   document.getElementById('mem-id-display').textContent = '會員編號：' + member.memberId;
-  // M000 才顯示後台入口
   if(member.memberId === 'M000') {
     document.getElementById('admin-menu-card').style.display = 'block';
   }
-  // 載入 LINE 暱稱
   const savedNick = localStorage.getItem('momo_line_nick') || '';
   const nickInput = document.getElementById('line-nickname-input');
   if(nickInput) nickInput.value = savedNick;
