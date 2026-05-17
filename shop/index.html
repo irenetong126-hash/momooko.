@@ -1655,14 +1655,61 @@ function renderAList(){
 function renderAdminCats(){
   const el=document.getElementById('admin-cats-list');
   el.innerHTML=CATS.map((c,i)=>`
-    <div class="acat-item">
-      <span class="acat-icon">${c.icon}</span>
-      <div style="flex:1;">
-        <div class="acat-label">${c.label}</div>
-        ${(c.subs||[]).length?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${(c.subs||[]).map(s=>`${s.icon}${s.label}`).join('・')}</div>`:''}
+    <div class="acat-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="acat-icon" id="cat-icon-display-${i}">${c.icon}</span>
+        <div style="flex:1;" id="cat-label-display-${i}">
+          <div class="acat-label">${c.label}</div>
+        </div>
+        <button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="toggleEditCat(${i})">編輯</button>
+        <button class="acat-del" onclick="delCatConfirm(${i})">刪除</button>
       </div>
-      <button class="acat-del" onclick="delCatConfirm(${i})">刪除</button>
+      <div id="cat-edit-${i}" style="display:none;gap:6px;flex-direction:column;">
+        <div style="display:flex;gap:6px;">
+          <input class="finput" id="edit-cat-icon-${i}" value="${c.icon}" style="width:55px;margin-bottom:0;text-align:center;font-size:18px;">
+          <input class="finput" id="edit-cat-label-${i}" value="${c.label}" style="flex:1;margin-bottom:0;">
+          <button class="btn-add" onclick="saveCatEdit(${i})">儲存</button>
+        </div>
+        ${(c.subs||[]).map((s,si)=>`
+        <div style="display:flex;gap:6px;padding-left:12px;">
+          <input class="finput" id="edit-sub-icon-${i}-${si}" value="${s.icon}" style="width:55px;margin-bottom:0;text-align:center;font-size:16px;">
+          <input class="finput" id="edit-sub-label-${i}-${si}" value="${s.label}" style="flex:1;margin-bottom:0;">
+          <button class="btn-add" onclick="saveSubEdit(${i},${si})">儲存</button>
+          <button class="acat-del" onclick="delSubCat(${i},${si})">✕</button>
+        </div>`).join('')}
+      </div>
     </div>`).join('');
+}
+function toggleEditCat(i){
+  const el = document.getElementById(`cat-edit-${i}`);
+  el.style.display = el.style.display==='none' ? 'flex' : 'none';
+}
+function saveCatEdit(i){
+  const icon = document.getElementById(`edit-cat-icon-${i}`).value.trim()||'🏷';
+  const label = document.getElementById(`edit-cat-label-${i}`).value.trim();
+  if(!label){showToast('⚠ 請輸入名稱');return;}
+  CATS[i].icon = icon;
+  CATS[i].label = label;
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('✅ 已更新')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats(); rebuildCatSelect(); rebuildSubCatSelect();
+}
+function saveSubEdit(i,si){
+  const icon = document.getElementById(`edit-sub-icon-${i}-${si}`).value.trim()||'🔹';
+  const label = document.getElementById(`edit-sub-label-${i}-${si}`).value.trim();
+  if(!label){showToast('⚠ 請輸入名稱');return;}
+  CATS[i].subs[si].icon = icon;
+  CATS[i].subs[si].label = label;
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('✅ 已更新')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats();
+}
+function delSubCat(i,si){
+  if(!confirm(`確定刪除子分類「${CATS[i].subs[si].label}」？`)) return;
+  CATS[i].subs.splice(si,1);
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('🗑 已刪除')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats();
 }
 function delCatConfirm(i){
   const cat = CATS[i];
