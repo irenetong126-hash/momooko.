@@ -96,7 +96,7 @@ window.submitOrderFB = async function() {
     document.getElementById('success-ordnum').textContent = shortId;
     document.getElementById('success-modal').classList.add('show');
     // 發送 Email 通知
-    sendOrderEmail({memberId: m.memberId, items, total: tot, date: new Date().toLocaleDateString('zh-TW')});
+    window.sendOrderEmail({memberId: m.memberId, items, total: tot, date: new Date().toLocaleDateString('zh-TW')});
   } catch(e) {
     showToast('❌ 送出失敗，請稍後再試');
     console.error(e);
