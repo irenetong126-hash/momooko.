@@ -1655,11 +1655,13 @@ function renderAList(){
 function renderAdminCats(){
   const el=document.getElementById('admin-cats-list');
   el.innerHTML=CATS.map((c,i)=>`
-    <div class="acat-item" style="flex-direction:column;align-items:stretch;gap:6px;">
+    <div class="acat-item" data-idx="${i}" style="flex-direction:column;align-items:stretch;gap:6px;" draggable="true" ondragstart="dragCat(event,${i})" ondragover="dragOverCat(event,${i})" ondrop="dropCat(event,${i})">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span class="acat-icon" id="cat-icon-display-${i}">${c.icon}</span>
-        <div style="flex:1;" id="cat-label-display-${i}">
+        <span style="font-size:18px;color:var(--muted);cursor:grab;user-select:none;">⠿</span>
+        <span class="acat-icon">${c.icon}</span>
+        <div style="flex:1;">
           <div class="acat-label">${c.label}</div>
+          ${(c.subs||[]).length?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${(c.subs||[]).map(s=>`${s.icon}${s.label}`).join('・')}</div>`:''}
         </div>
         <button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="toggleEditCat(${i})">編輯</button>
         <button class="acat-del" onclick="delCatConfirm(${i})">刪除</button>
@@ -1679,6 +1681,20 @@ function renderAdminCats(){
         </div>`).join('')}
       </div>
     </div>`).join('');
+}
+
+let dragSrcIdx = null;
+function dragCat(e, i){ dragSrcIdx = i; e.dataTransfer.effectAllowed='move'; }
+function dragOverCat(e, i){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+function dropCat(e, i){
+  e.preventDefault();
+  if(dragSrcIdx===null || dragSrcIdx===i) return;
+  const moved = CATS.splice(dragSrcIdx,1)[0];
+  CATS.splice(i,0,moved);
+  dragSrcIdx=null;
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('✅ 順序已更新')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats(); rebuildCatSelect(); rebuildSubCatSelect();
 }
 function toggleEditCat(i){
   const el = document.getElementById(`cat-edit-${i}`);
