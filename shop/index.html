@@ -1370,7 +1370,7 @@ function renderFavsGrid(){
   empty.style.display='none';
   grid.innerHTML=favProds.map(p=>{
     const img0=p.imgs&&p.imgs[0]?p.imgs[0]:'';
-    return`<div class="prod-tile" onclick="openDetail(${p.id});closeFavsPage()">
+    return`<div class="prod-tile" onclick="openDetail('${p.id}');closeFavsPage()">
       <div class="prod-tile-img">
         ${img0?`<img src="${img0}">`:''}
         <span style="${img0?'opacity:0;':''}">${p.emoji}</span>
@@ -1421,7 +1421,7 @@ function renderGrid(){
   grid.innerHTML=list.map(p=>{
     const img0=getImg0(p);
     const isFav=loadFavs().includes(p.id);
-    return`<div class="prod-tile" onclick="openDetail(${p.id})">
+    return`<div class="prod-tile" onclick="openDetail('${p.id}')">
       <div class="prod-tile-img">
         ${img0?`<img src="${img0}">`:''}
         <span style="${img0?'opacity:0;':''}">${p.emoji}</span>
@@ -1480,7 +1480,7 @@ function selectCat(id){
 
 /* ── DETAIL ── */
 function openDetail(id){
-  const p=PRODS.find(x=>x.id===id);if(!p)return;
+  const p=PRODS.find(x=>String(x.id)===String(id));if(!p)return;
   curDetailId=id;detailQty=1;
   document.getElementById('detail-back-title').textContent=p.name;
   document.getElementById('detail-store').textContent=p.store;
