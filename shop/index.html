@@ -1213,7 +1213,11 @@ input[type=file]{display:none;}
         <div><label class="flabel">單位</label><input class="finput" id="f-unit" placeholder="盒/瓶/包"></div>
       </div>
       <label class="flabel">分類</label>
-      <select class="fsel" id="f-cat"></select>
+      <select class="fsel" id="f-cat" onchange="updateSubCatSelect()"></select>
+      <div id="f-subcat-row" style="display:none;">
+        <label class="flabel">子分類（選填）</label>
+        <select class="fsel" id="f-subcat"></select>
+      </div>
       <label class="flabel">庫存說明</label>
       <input class="finput" id="f-stock" placeholder="例：限量 20 盒 / 庫存充足">
       <label class="flabel">商品說明</label>
@@ -1399,7 +1403,17 @@ function orderMatchesFilter(o,filter){
 function getImg0(p){return p.imgs&&p.imgs[0]?p.imgs[0]:'';}
 function renderGrid(){
   const grid=document.getElementById('prod-grid');
-  const list=curCat==='all'?PRODS:PRODS.filter(p=>p.cat===curCat);
+  const list=curCat==='all'?PRODS:PRODS.filter(p=>{
+    // 先檢查是不是子分類 ID
+    for(const c of CATS){
+      if(c.subs){
+        const sub = c.subs.find(s=>s.id===curCat);
+        if(sub) return p.subcat===curCat;
+      }
+    }
+    // 母分類
+    return p.cat===curCat;
+  });
   if(!list.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🛍</div><p>此分類目前沒有商品</p></div>';
     return;
@@ -1769,6 +1783,21 @@ function rebuildCatSelect(){
   const sel=document.getElementById('f-cat');
   if(!sel) return;
   sel.innerHTML=CATS.map(c=>`<option value="${c.id}">${c.icon} ${c.label}</option>`).join('');
+  updateSubCatSelect();
+}
+function updateSubCatSelect(){
+  const catId = document.getElementById('f-cat')?.value;
+  const cat = CATS.find(c=>c.id===catId);
+  const row = document.getElementById('f-subcat-row');
+  const sel = document.getElementById('f-subcat');
+  if(!row||!sel) return;
+  if(cat && cat.subs && cat.subs.length > 0){
+    row.style.display='block';
+    sel.innerHTML='<option value="">不選子分類</option>'+cat.subs.map(s=>`<option value="${s.id}">${s.icon} ${s.label}</option>`).join('');
+  } else {
+    row.style.display='none';
+    sel.innerHTML='';
+  }
 }
 
 /* ── ADMIN ORDERS — FIX: merged with 整體進度, real stats ── */
@@ -1862,6 +1891,8 @@ function openProdForm(id){
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock;document.getElementById('f-desc').value=p.desc||'';
       document.getElementById('f-cat').value=p.cat;
+      updateSubCatSelect();
+      if(p.subcat) document.getElementById('f-subcat').value=p.subcat;
       if(p.low)document.getElementById('low-tog').classList.add('on');
       const imgs = p.imgs || [];
       [1,2,3].forEach((n,i)=>{
@@ -1897,9 +1928,10 @@ function saveProd(){
   const stock=document.getElementById('f-stock').value.trim();
   const desc=document.getElementById('f-desc').value.trim();
   const cat=document.getElementById('f-cat').value;
+  const subcat=document.getElementById('f-subcat')?.value||'';
   if(!name||!store||!price||!unit||!stock){showToast('⚠ 請填寫所有必填欄位');return;}
   const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
-  const prod={cat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow};
+  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow};
   if(editId){
     const i=PRODS.findIndex(p=>p.id===editId);
     if(i!==-1) PRODS[i]={id:editId,...prod};
