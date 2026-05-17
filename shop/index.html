@@ -1213,7 +1213,7 @@ input[type=file]{display:none;}
         <div><label class="flabel">單位</label><input class="finput" id="f-unit" placeholder="盒/瓶/包"></div>
       </div>
       <label class="flabel">分類</label>
-      <select class="fsel" id="f-cat" onchange="updateSubCatSelect()"></select>
+      <select class="fsel" id="f-cat" onchange="updateSubCatSelect()" oninput="updateSubCatSelect()"></select>
       <div id="f-subcat-row" style="display:none;">
         <label class="flabel">子分類（選填）</label>
         <select class="fsel" id="f-subcat"></select>
@@ -1787,6 +1787,7 @@ function rebuildCatSelect(){
 }
 function updateSubCatSelect(){
   const catId = document.getElementById('f-cat')?.value;
+  if(!catId) return;
   const cat = CATS.find(c=>c.id===catId);
   const row = document.getElementById('f-subcat-row');
   const sel = document.getElementById('f-subcat');
@@ -1904,6 +1905,7 @@ function openProdForm(id){
     }
   }
   document.getElementById('prod-form-sheet').classList.add('show');
+  setTimeout(()=>updateSubCatSelect(), 50);
 }
 function previewImgUrl(n){
   const url = document.getElementById(`img-url-${n}`).value.trim();
