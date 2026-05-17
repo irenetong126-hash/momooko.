@@ -176,14 +176,15 @@ window.deleteOrderFB = async function(fbId, oi) {
 
 // EmailJS 新訂單通知
 window.sendOrderEmail = function(order) {
-  if(typeof emailjs === 'undefined') return;
+  if(typeof emailjs === 'undefined'){console.error('EmailJS 未載入');return;}
   const itemsList = order.items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join('\n');
+  console.log('發送 Email...', order.memberId);
   emailjs.send('service_qidtqgc', 'template_5kxk84m', {
     member_id: order.memberId,
     items: itemsList,
     total: 'NT$' + order.total.toLocaleString(),
     date: order.date,
-  }).catch(e=>console.error('EmailJS error:', e));
+  }).then(()=>console.log('Email 發送成功')).catch(e=>console.error('EmailJS error:', e));
 };
 
 // 儲存分類
