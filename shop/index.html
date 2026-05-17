@@ -411,7 +411,11 @@ img{display:block;}
 .prod-tile-stock.low{color:#d97706;}
 
 /* CATEGORY DRAWER */
-.drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;}
+.cat-subs{display:none;padding:0 0 4px 32px;}
+.cat-subs.open{display:block;}
+.cat-sub-option{padding:8px 12px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;border-radius:8px;cursor:pointer;}
+.cat-sub-option.active,.cat-sub-option:active{background:var(--pri-s);color:var(--pri-d);font-weight:600;}
+
 .drawer-overlay.show{display:block;}
 .cat-drawer{position:fixed;top:0;right:0;bottom:0;width:72%;max-width:290px;background:#fff;z-index:401;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
 .cat-drawer.open{transform:translateX(0);}
@@ -1021,6 +1025,14 @@ input[type=file]{display:none;}
         <input class="finput" id="new-cat-label" placeholder="分類名稱" style="flex:1;margin-bottom:0;">
         <button class="btn-add" onclick="addCat()">新增</button>
       </div>
+      <div style="height:16px;"></div>
+      <div class="admin-sec-title" style="margin-bottom:8px;">子分類</div>
+      <select class="finput" id="sub-cat-select" style="margin-bottom:8px;"></select>
+      <div style="display:flex;gap:8px;">
+        <input class="finput" id="new-sub-icon" placeholder="🔹" style="width:60px;margin-bottom:0;text-align:center;font-size:20px;">
+        <input class="finput" id="new-sub-label" placeholder="子分類名稱" style="flex:1;margin-bottom:0;">
+        <button class="btn-add" onclick="addSub()">新增</button>
+      </div>
     </div>
 
     <!-- 訂單 + 整體進度 (merged) -->
@@ -1366,19 +1378,39 @@ function buildDrawer(){
   const allCats=[{id:'all',icon:'🗂',label:'全部商品'},...CATS];
   document.getElementById('drawer-body').innerHTML=allCats.map(c=>{
     const cnt=c.id==='all'?PRODS.length:PRODS.filter(p=>p.cat===c.id).length;
-    return`<div class="cat-option${c.id===curCat?' active':''}" onclick="selectCat('${c.id}')">
+    const hasSubs = c.subs && c.subs.length > 0;
+    const subsHtml = hasSubs ? `
+      <div class="cat-subs" id="subs-${c.id}">
+        ${c.subs.map(s=>`
+          <div class="cat-sub-option${curCat===s.id?' active':''}" onclick="selectCat('${s.id}');event.stopPropagation();">
+            <span>${s.icon}</span>
+            <span>${s.label}</span>
+          </div>`).join('')}
+      </div>` : '';
+    return`<div class="cat-option${c.id===curCat?' active':''}" onclick="${hasSubs?`toggleSubs('${c.id}')`:`selectCat('${c.id}')`}">
       <span class="cat-opt-icon">${c.icon}</span>
       <span class="cat-opt-label">${c.label}</span>
       <span class="cat-opt-count">${cnt}</span>
-    </div>`;
+      ${hasSubs?`<span style="font-size:12px;color:var(--muted);">›</span>`:''}
+    </div>${subsHtml}`;
   }).join('');
+}
+function toggleSubs(catId){
+  const el = document.getElementById(`subs-${catId}`);
+  if(!el) return;
+  el.classList.toggle('open');
 }
 function openDrawer(){buildDrawer();document.getElementById('drawer-overlay').classList.add('show');document.getElementById('cat-drawer').classList.add('open');}
 function closeDrawer(){document.getElementById('drawer-overlay').classList.remove('show');document.getElementById('cat-drawer').classList.remove('open');}
 function selectCat(id){
   curCat=id;closeDrawer();renderGrid();
-  const c=[{id:'all',label:'全部商品'},...CATS].find(x=>x.id===id);
-  document.getElementById('shop-cat-label').textContent=c?c.label:'全部商品';
+  const allCats=[{id:'all',label:'全部商品'},...CATS];
+  let label = '全部商品';
+  for(const c of allCats){
+    if(c.id===id){label=c.label;break;}
+    if(c.subs){const s=c.subs.find(x=>x.id===id);if(s){label=s.label;break;}}
+  }
+  document.getElementById('shop-cat-label').textContent=label;
 }
 
 /* ── DETAIL ── */
@@ -1532,7 +1564,7 @@ function switchATab(el,id){
   document.querySelectorAll('.apanel').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');document.getElementById('apanel-'+id).classList.add('active');
   if(id==='orders')renderAdminOrders();
-  if(id==='cats')renderAdminCats();
+  if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
   if(id==='trip'&&window.loadTrip)loadTrip();
 }
 function openAdmin(){
@@ -1574,31 +1606,54 @@ function renderAdminCats(){
   el.innerHTML=CATS.map((c,i)=>`
     <div class="acat-item">
       <span class="acat-icon">${c.icon}</span>
-      <span class="acat-label">${c.label}</span>
-      <button class="acat-del" onclick="delCat(${i})">刪除</button>
+      <div style="flex:1;">
+        <div class="acat-label">${c.label}</div>
+        ${(c.subs||[]).length?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${(c.subs||[]).map(s=>`${s.icon}${s.label}`).join('・')}</div>`:''}
+      </div>
+      <button class="acat-del" onclick="delCatConfirm(${i})">刪除</button>
     </div>`).join('');
+}
+function delCatConfirm(i){
+  const cat = CATS[i];
+  if(!cat) return;
+  CATS.splice(i,1);
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('🗑 分類已刪除')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats(); renderAStatsProds(); rebuildCatSelect();
 }
 function addCat(){
   const icon=document.getElementById('new-cat-icon').value.trim()||'🏷';
   const label=document.getElementById('new-cat-label').value.trim();
   if(!label){showToast('⚠ 請輸入分類名稱');return;}
   const id='cat_'+Date.now();
-  CATS.push({id,icon,label});
+  CATS.push({id,icon,label,subs:[]});
   saveCats(CATS);
   saveCatsFB(CATS).then(()=>showToast('✅ 分類已新增')).catch(e=>showToast('❌ '+e.message));
   document.getElementById('new-cat-icon').value='';
   document.getElementById('new-cat-label').value='';
-  renderAdminCats();renderAStatsProds();rebuildCatSelect();
+  renderAdminCats(); renderAStatsProds(); rebuildCatSelect(); rebuildSubCatSelect();
 }
-function delCat(i){
-  showDelConfirm(`確定刪除「${CATS[i].label}」分類？`,()=>{
-    CATS.splice(i,1);saveCats(CATS);
-    saveCatsFB(CATS).then(()=>showToast('🗑 分類已刪除')).catch(e=>showToast('❌ '+e.message));
-    renderAdminCats();renderAStatsProds();rebuildCatSelect();
-  });
+function addSub(){
+  const catIdx = parseInt(document.getElementById('sub-cat-select').value);
+  const icon = document.getElementById('new-sub-icon').value.trim()||'🔹';
+  const label = document.getElementById('new-sub-label').value.trim();
+  if(isNaN(catIdx)||!label){showToast('⚠ 請選擇分類並輸入子分類名稱');return;}
+  if(!CATS[catIdx].subs) CATS[catIdx].subs=[];
+  CATS[catIdx].subs.push({id:'sub_'+Date.now(),icon,label});
+  saveCats(CATS);
+  saveCatsFB(CATS).then(()=>showToast('✅ 子分類已新增')).catch(e=>showToast('❌ '+e.message));
+  document.getElementById('new-sub-icon').value='';
+  document.getElementById('new-sub-label').value='';
+  renderAdminCats(); rebuildCatSelect();
+}
+function rebuildSubCatSelect(){
+  const el = document.getElementById('sub-cat-select');
+  if(!el) return;
+  el.innerHTML = CATS.map((c,i)=>`<option value="${i}">${c.icon} ${c.label}</option>`).join('');
 }
 function rebuildCatSelect(){
   const sel=document.getElementById('f-cat');
+  if(!sel) return;
   sel.innerHTML=CATS.map(c=>`<option value="${c.id}">${c.icon} ${c.label}</option>`).join('');
 }
 
