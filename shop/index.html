@@ -102,6 +102,7 @@ window.submitOrderFB = async function() {
     // 發送 Email 通知
     try {
       const itemsList = items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join(', ');
+      const lineNick = localStorage.getItem('momo_line_nick') || '未填寫';
       await window.emailjs.send('service_qidtqgc', 'template_iuiyfem', {
         name: m.memberId,
         time: new Date().toLocaleString('zh-TW'),
@@ -110,6 +111,7 @@ window.submitOrderFB = async function() {
         total: 'NT$' + tot.toLocaleString(),
         date: new Date().toLocaleDateString('zh-TW'),
         email: 'momo.oko.55555@gmail.com',
+        line_nick: lineNick,
       });
       console.log('✅ Email 發送成功');
     } catch(emailErr) {
@@ -874,7 +876,12 @@ input[type=file]{display:none;}
     </div>
   </div>
   <div class="mem-info-card">
-    <div class="mem-info-row" style="border-bottom:none;"><span class="mem-info-icon">📦</span><span class="mem-info-label">累積訂單</span><span class="mem-info-val" id="mem-order-count">0 筆</span></div>
+    <div class="mem-info-row"><span class="mem-info-icon">📦</span><span class="mem-info-label">累積訂單</span><span class="mem-info-val" id="mem-order-count">0 筆</span></div>
+    <div class="mem-info-row" style="border-bottom:none;">
+      <span class="mem-info-icon">💬</span>
+      <span class="mem-info-label">LINE 社群暱稱</span>
+      <input class="mem-info-input" id="line-nickname-input" placeholder="請填寫暱稱" onchange="saveLineNickname(this.value)">
+    </div>
   </div>
   <div class="mem-menu">
     <div class="menu-card">
@@ -1242,11 +1249,18 @@ window.showApp = function(member){
   if(member.memberId === 'M000') {
     document.getElementById('admin-menu-card').style.display = 'block';
   }
+  // 載入 LINE 暱稱
+  const savedNick = localStorage.getItem('momo_line_nick') || '';
+  const nickInput = document.getElementById('line-nickname-input');
+  if(nickInput) nickInput.value = savedNick;
 }
 
 /* ── LINE NICKNAME ── */
 function saveNickname(v){try{localStorage.setItem('momo_nick',v);}catch(e){}}
 function loadNickname(){try{return localStorage.getItem('momo_nick')||'';}catch(e){return '';}}
+function saveLineNickname(v){
+  try{localStorage.setItem('momo_line_nick',v);}catch(e){}
+}
 
 /* ── Custom delete confirm (centered modal) ── */
 let _delCb=null;
