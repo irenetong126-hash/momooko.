@@ -38,6 +38,8 @@ onAuthStateChanged(auth, async (user) => {
     if (memberId === 'M000') {
       // 管理員直接進後台
       document.getElementById('login-screen').classList.remove('show');
+      loadProdsAndCats();
+      loadAllOrders();
       openAdmin();
     } else {
       showApp(window._currentMember);
@@ -495,7 +497,7 @@ img{display:block;}
 .guide-notice p{font-size:12px;color:var(--ink);line-height:1.7;}
 
 /* SHEETS */
-.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-end;justify-content:center;}
+.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:flex-end;justify-content:center;}
 .sheet-overlay.show{display:flex;}
 .sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:480px;padding:0 0 calc(24px + var(--sb));max-height:92dvh;overflow-y:auto;}
 .sheet-overlay.show .sheet{animation:su .28s ease;}
@@ -574,7 +576,7 @@ input[type=file]{display:none;}
 .btn-later{width:100%;padding:11px;background:#f0f8fb;color:var(--muted);border-radius:11px;font-size:13px;font-weight:600;}
 
 /* Delete confirm — centered modal */
-.del-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:20px;}
+.del-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1200;align-items:center;justify-content:center;padding:20px;}
 .del-overlay.show{display:flex;}
 .del-box{background:#fff;border-radius:18px;padding:22px 20px;width:100%;max-width:280px;text-align:center;animation:su .2s ease;}
 .del-box-icon{font-size:30px;margin-bottom:8px;}
