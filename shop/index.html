@@ -6,7 +6,11 @@
 <title>ももコ・もも購</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Shippori+Mincho:wght@400;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script>emailjs.init('WL1Q2JRdRJu1OgONq');</script>
+<script>
+  window.addEventListener('load', function() {
+    emailjs.init({publicKey: 'WL1Q2JRdRJu1OgONq'});
+  });
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -1612,11 +1616,16 @@ function renderAdminOrders(){
   if(!ORDERS.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>還沒有訂單</p></div>';return;}
   el.innerHTML=ORDERS.map((o,oi)=>{
     const mx=orderMaxStep(o);
+    const displayName = o.memberName || o.user || o.memberId || '未知';
+    const displayId = o.memberId || o.id || '';
+    const displayDate = o.date || '';
+    const displayPhone = o.phone || '';
+    const shortId = o.id || o.fbId?.slice(-6) || '';
     return`<div class="aorder">
       <div class="aorder-hd">
         <div>
-          <div class="aorder-user">👤 ${o.user}${o.lineNick?` · <span class="aorder-nick">💬 ${o.lineNick}</span>`:''}</div>
-          <div class="aorder-id">${o.id}｜${o.date}｜${o.phone}</div>
+          <div class="aorder-user">👤 ${displayName}</div>
+          <div class="aorder-id">${shortId}｜會員：${displayId}｜${displayDate}｜${displayPhone}</div>
         </div>
         <span class="ostatus ${stCls(mx)}" style="font-size:10px;padding:3px 8px;flex-shrink:0;">${stText(mx)}</span>
       </div>
