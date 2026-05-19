@@ -1107,8 +1107,9 @@ input[type=file]{display:none;}
       <label class="flabel">會員編號</label>
       <input class="finput" id="manual-member-id" placeholder="例：M001" style="text-transform:uppercase;">
       <label class="flabel">選擇商品</label>
-      <input class="finput" id="manual-search" placeholder="🔍 搜尋商品名稱…" oninput="filterManualProds()" style="margin-bottom:6px;">
-      <select class="fsel" id="manual-prod-select" onchange="updateManualProdDetail()" size="4" style="height:auto;"></select>
+      <input class="finput" id="manual-search" placeholder="🔍 輸入商品名稱搜尋…" oninput="filterManualProds()" autocomplete="off">
+      <div id="manual-search-results" style="display:none;background:#fff;border:1.5px solid var(--border);border-radius:10px;margin-top:4px;margin-bottom:8px;max-height:180px;overflow-y:auto;"></div>
+      <input type="hidden" id="manual-prod-select">
       <div id="manual-prod-detail" style="display:none;margin-bottom:11px;">
         <div id="manual-specs-area"></div>
         <label class="flabel">數量</label>
@@ -1776,15 +1777,38 @@ let manualQty = 1;
 let manualSpecs = {};
 
 function buildManualProdSelect(){
-  const sel = document.getElementById('manual-prod-select');
-  if(!sel) return;
-  const keyword = document.getElementById('manual-search')?.value.trim().toLowerCase() || '';
-  const filtered = keyword ? PRODS.filter(p=>p.name.toLowerCase().includes(keyword)||p.store.toLowerCase().includes(keyword)) : PRODS;
-  sel.innerHTML = '<option value="">選擇商品…</option>' + filtered.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} NT$${p.price.toLocaleString()}</option>`).join('');
+  filterManualProds();
 }
 
 function filterManualProds(){
-  buildManualProdSelect();
+  const keyword = document.getElementById('manual-search')?.value.trim().toLowerCase() || '';
+  const resultsEl = document.getElementById('manual-search-results');
+  if(!keyword){ resultsEl.style.display='none'; resultsEl.innerHTML=''; return; }
+  const filtered = PRODS.filter(p=>p.name.toLowerCase().includes(keyword)||p.store.toLowerCase().includes(keyword));
+  if(!filtered.length){
+    resultsEl.style.display='block';
+    resultsEl.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;">找不到商品</div>';
+    return;
+  }
+  resultsEl.style.display='block';
+  resultsEl.innerHTML = filtered.map(p=>`
+    <div onclick="selectManualProd('${p.id}')" style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;">
+      <span style="font-size:20px;">${p.emoji}</span>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted);">${p.store} ・ NT$${p.price.toLocaleString()}</div>
+      </div>
+    </div>`).join('');
+}
+
+function selectManualProd(id){
+  document.getElementById('manual-prod-select').value = id;
+  const p = PRODS.find(x=>String(x.id)===String(id));
+  if(p){
+    document.getElementById('manual-search').value = p.name;
+    document.getElementById('manual-search-results').style.display='none';
+  }
+  updateManualProdDetail();
 }
 
 function updateManualProdDetail(){
