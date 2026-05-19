@@ -1060,6 +1060,7 @@ input[type=file]{display:none;}
       <div class="atab active" onclick="switchATab(this,'prods')">🛍 商品</div>
       <div class="atab" onclick="switchATab(this,'cats')">🗂 分類</div>
       <div class="atab" onclick="switchATab(this,'orders')">📋 訂單</div>
+      <div class="atab" onclick="switchATab(this,'manual')">✏️ 代客</div>
       <div class="atab" onclick="switchATab(this,'trip')">✈️ 行程</div>
     </div>
 
@@ -1098,6 +1099,30 @@ input[type=file]{display:none;}
         <span style="font-size:11px;color:var(--muted);" id="order-count"></span>
       </div>
       <div id="admin-orders-list"></div>
+    </div>
+
+    <!-- 代客下單 -->
+    <div class="apanel" id="apanel-manual">
+      <div class="admin-sec-title" style="margin-bottom:12px;">✏️ 代客下單</div>
+      <label class="flabel">會員編號</label>
+      <input class="finput" id="manual-member-id" placeholder="例：M001" style="text-transform:uppercase;">
+      <label class="flabel">選擇商品</label>
+      <select class="fsel" id="manual-prod-select" onchange="updateManualProdDetail()"></select>
+      <div id="manual-prod-detail" style="display:none;margin-bottom:11px;">
+        <div id="manual-specs-area"></div>
+        <label class="flabel">數量</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">
+          <button onclick="changeManualQty(-1)" style="width:32px;height:32px;border-radius:8px;border:1.5px solid var(--border);font-size:18px;background:#fff;">−</button>
+          <span id="manual-qty-display" style="font-size:16px;font-weight:700;min-width:24px;text-align:center;">1</span>
+          <button onclick="changeManualQty(1)" style="width:32px;height:32px;border-radius:8px;border:1.5px solid var(--border);font-size:18px;background:#fff;">＋</button>
+        </div>
+        <button class="btn-add" style="width:100%;margin-bottom:8px;" onclick="addManualItem()">＋ 加入清單</button>
+      </div>
+      <div id="manual-items-list" style="margin-bottom:11px;"></div>
+      <div id="manual-total" style="font-size:13px;font-weight:700;color:var(--ora);margin-bottom:11px;"></div>
+      <button class="btn-pri" onclick="submitManualOrder()">💾 送出訂單</button>
+      <div style="height:8px;"></div>
+      <button class="btn-ghost" onclick="clearManualOrder()">清除</button>
     </div>
 
     <!-- 行程 & 進度 -->
@@ -1606,9 +1631,17 @@ function removeFromCart(id){
 /* ── CONFIRM MODAL ── */
 function openConfirmModal(){
   closeSheet('cart-sheet');
-  const tot=Object.entries(cart).reduce((s,[id,q])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*q:0);},0);
+  const tot=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);const qty=v.qty||v;return s+(p?p.price*qty:0);},0);
   document.getElementById('confirm-items-list').innerHTML=
-    Object.entries(cart).map(([id,q])=>{const p=PRODS.find(x=>x.id==id);return`<div class="confirm-box-item"><span>${p.emoji} ${p.name} × ${q}</span><span>NT$${(p.price*q).toLocaleString()}</span></div>`;}).join('')+
+    Object.entries(cart).map(([id,v])=>{
+      const p=PRODS.find(x=>x.id==id);
+      const qty=v.qty||v;
+      const specs=v.specs||'';
+      return`<div class="confirm-box-item">
+        <div style="flex:1;"><div>${p.emoji} ${p.name} × ${qty}</div>${specs?`<div style="font-size:11px;color:var(--muted);">${specs}</div>`:''}</div>
+        <span>NT$${(p.price*qty).toLocaleString()}</span>
+      </div>`;
+    }).join('')+
     `<div class="confirm-box-total"><span>合計</span><span>NT$${tot.toLocaleString()}</span></div>`;
   document.getElementById('confirm-modal').classList.add('show');
 }
@@ -1657,7 +1690,7 @@ function renderMyOrders(){
       <div class="order-hd"><span class="order-id">${o.id}｜${o.date}</span><span class="ostatus ${stCls(mx)}">${stText(mx)}</span></div>
       <div class="order-items">${o.items.map(i=>{
         const img=i.imgs&&i.imgs[0]?`<img src="${i.imgs[0]}">`:`${i.emoji}`;
-        return`<div class="oi"><div class="oi-img">${img}</div><div class="oi-info"><div class="oi-name">${i.name}</div><div class="oi-detail">× ${i.qty}｜${stText(i.step)}</div></div><div class="oi-price">NT$${i.price.toLocaleString()}</div></div>`;
+        return`<div class="oi"><div class="oi-img">${img}</div><div class="oi-info"><div class="oi-name">${i.name}</div><div class="oi-detail">× ${i.qty}${i.specs?' ・'+i.specs:''}｜${stText(i.step)}</div></div><div class="oi-price">NT$${i.price.toLocaleString()}</div></div>`;
       }).join('')}</div>
       <div class="order-ft"><span class="order-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span><button class="btn-track" onclick="goPage('progress')">查看進度</button></div>
     </div>`;
@@ -1678,7 +1711,7 @@ function renderMyProgress(){
     return`<div class="mpi">
       <div class="mpi-hd">
         <div class="mpi-emoji-wrap">${img?`<img src="${img}">`:`${i.emoji}`}</div>
-        <div style="flex:1;"><div class="mpi-name">${i.name} × ${i.qty}</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">${o.id}</div></div>
+        <div style="flex:1;"><div class="mpi-name">${i.name} × ${i.qty}${i.specs?' ・'+i.specs:''}</div><div style="font-size:11px;color:var(--muted);margin-top:3px;">${o.id}</div></div>
         <span class="ostatus ${stCls(i.step)}" style="font-size:11px;padding:3px 9px;">${stText(i.step)}</span>
       </div>
       ${i.note?`<div class="mpi-note">🗒 ${i.note}</div>`:''}
@@ -1700,6 +1733,7 @@ function switchATab(el,id){
   el.classList.add('active');document.getElementById('apanel-'+id).classList.add('active');
   if(id==='orders')renderAdminOrders();
   if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
+  if(id==='manual'){buildManualProdSelect();}
   if(id==='trip'&&window.loadTrip)loadTrip();
 }
 function openAdmin(){
@@ -1735,7 +1769,120 @@ function renderAList(){
   }).join('');
 }
 
-/* ── ADMIN CATEGORIES ── */
+/* ── MANUAL ORDER ── */
+let manualItems = [];
+let manualQty = 1;
+let manualSpecs = {};
+
+function buildManualProdSelect(){
+  const sel = document.getElementById('manual-prod-select');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">選擇商品…</option>' + PRODS.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} NT$${p.price.toLocaleString()}</option>`).join('');
+}
+
+function updateManualProdDetail(){
+  const id = document.getElementById('manual-prod-select').value;
+  const detail = document.getElementById('manual-prod-detail');
+  if(!id){ detail.style.display='none'; return; }
+  const p = PRODS.find(x=>String(x.id)===String(id));
+  if(!p){ detail.style.display='none'; return; }
+  manualQty = 1;
+  manualSpecs = {};
+  document.getElementById('manual-qty-display').textContent = 1;
+  let specsHtml = '';
+  if(p.sizes && p.sizes.length>0){
+    specsHtml+=`<div class="spec-section"><div class="spec-label">尺寸</div><div class="spec-options">${p.sizes.map(s=>`<div class="spec-opt" onclick="selectManualSpec(this,'size','${s}')">${s}</div>`).join('')}</div></div>`;
+  }
+  if(p.colors && p.colors.length>0){
+    specsHtml+=`<div class="spec-section"><div class="spec-label">顏色</div><div class="spec-options">${p.colors.map(c=>`<div class="spec-opt" onclick="selectManualSpec(this,'color','${c}')">${c}</div>`).join('')}</div></div>`;
+  }
+  document.getElementById('manual-specs-area').innerHTML = specsHtml;
+  detail.style.display = 'block';
+}
+
+function selectManualSpec(el, type, val){
+  el.closest('.spec-options').querySelectorAll('.spec-opt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  manualSpecs[type] = val;
+}
+
+function changeManualQty(d){
+  manualQty = Math.max(1, manualQty + d);
+  document.getElementById('manual-qty-display').textContent = manualQty;
+}
+
+function addManualItem(){
+  const id = document.getElementById('manual-prod-select').value;
+  if(!id){ showToast('⚠ 請選擇商品'); return; }
+  const p = PRODS.find(x=>String(x.id)===String(id));
+  if(!p) return;
+  const specs = Object.entries(manualSpecs).map(([k,v])=>`${k==='size'?'尺寸':'顏色'}：${v}`).join('／');
+  manualItems.push({prodId:p.id, name:p.name, emoji:p.emoji, imgs:p.imgs||[], qty:manualQty, price:p.price*manualQty, specs, step:0, note:''});
+  renderManualItems();
+  document.getElementById('manual-prod-select').value = '';
+  document.getElementById('manual-prod-detail').style.display = 'none';
+  manualSpecs = {}; manualQty = 1;
+}
+
+function renderManualItems(){
+  const el = document.getElementById('manual-items-list');
+  if(!manualItems.length){ el.innerHTML=''; document.getElementById('manual-total').textContent=''; return; }
+  el.innerHTML = manualItems.map((it,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--pri-s);border-radius:8px;margin-bottom:6px;">
+      <span style="font-size:18px;">${it.emoji}</span>
+      <div style="flex:1;font-size:12px;">
+        <div style="font-weight:700;">${it.name} × ${it.qty}</div>
+        ${it.specs?`<div style="color:var(--muted);">${it.specs}</div>`:''}
+      </div>
+      <span style="font-size:12px;font-weight:700;color:var(--ora);">NT$${it.price.toLocaleString()}</span>
+      <button onclick="removeManualItem(${i})" style="color:#ef4444;font-size:16px;background:none;border:none;">✕</button>
+    </div>`).join('');
+  const tot = manualItems.reduce((s,it)=>s+it.price, 0);
+  document.getElementById('manual-total').textContent = `合計：NT$${tot.toLocaleString()}`;
+}
+
+function removeManualItem(i){
+  manualItems.splice(i,1);
+  renderManualItems();
+}
+
+function clearManualOrder(){
+  manualItems = [];
+  manualSpecs = {};
+  manualQty = 1;
+  document.getElementById('manual-member-id').value = '';
+  document.getElementById('manual-prod-select').value = '';
+  document.getElementById('manual-prod-detail').style.display = 'none';
+  renderManualItems();
+}
+
+window.submitManualOrder = async function(){
+  const memberId = document.getElementById('manual-member-id').value.trim().toUpperCase();
+  if(!memberId){ showToast('⚠ 請輸入會員編號'); return; }
+  if(!manualItems.length){ showToast('⚠ 請加入商品'); return; }
+  const tot = manualItems.reduce((s,it)=>s+it.price, 0);
+  const { collection, addDoc, serverTimestamp } = window._fbFns;
+  const db = window._db;
+  const orderData = {
+    memberId,
+    memberName: memberId,
+    phone: '',
+    total: tot,
+    items: manualItems,
+    status: '待確認',
+    createdAt: serverTimestamp(),
+    manualByAdmin: true
+  };
+  try {
+    await addDoc(collection(db,'momoko_orders'), orderData);
+    showToast('✅ 訂單已建立！');
+    clearManualOrder();
+    if(window.loadAllOrders) loadAllOrders();
+  } catch(e){
+    showToast('❌ 失敗：' + e.message);
+    console.error(e);
+  }
+};
 function renderAdminCats(){
   const el=document.getElementById('admin-cats-list');
   el.innerHTML=CATS.map((c,i)=>`
