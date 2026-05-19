@@ -94,8 +94,8 @@ window.submitOrderFB = async function() {
     document.getElementById('login-prompt-modal').classList.add('show');
     return;
   }
-  const tot = Object.entries(cart).reduce((s,[id,q])=>{ const p=PRODS.find(x=>x.id==id); return s+(p?p.price*q:0); }, 0);
-  const items = Object.entries(cart).map(([id,q])=>{ const p=PRODS.find(x=>x.id==id); return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty:q,price:p.price*q,step:0,note:''}; });
+  const tot = Object.entries(cart).reduce((s,[id,v])=>{ const p=PRODS.find(x=>x.id==id); return s+(p?p.price*(v.qty||v):0); }, 0);
+  const items = Object.entries(cart).map(([id,v])=>{ const p=PRODS.find(x=>x.id==id); const qty=v.qty||v; const specs=v.specs||''; return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty,price:p.price*qty,specs,step:0,note:''}; });
   const orderData = { memberId: m.memberId, memberName: m.name||m.memberId, phone: m.phone||'', total: tot, items, status:'待確認', createdAt: serverTimestamp() };
   const btn = document.querySelector('.confirm-final-btn');
   btn.textContent = '送出中…'; btn.disabled = true;
@@ -110,7 +110,7 @@ window.submitOrderFB = async function() {
     document.getElementById('success-modal').classList.add('show');
     // 發送 Email 通知
     try {
-      const itemsList = items.map(i=>`${i.name} × ${i.qty} = NT$${i.price.toLocaleString()}`).join(', ');
+      const itemsList = items.map(i=>`${i.name} × ${i.qty}${i.specs?' ('+i.specs+')':''} = NT$${i.price.toLocaleString()}`).join(', ');
       const lineNick = localStorage.getItem('momo_line_nick') || '未填寫';
       await window.emailjs.send('service_qidtqgc', 'template_iuiyfem', {
         name: m.memberId,
@@ -404,20 +404,27 @@ img{display:block;}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;}
 
 /* Square product tile */
-.prod-tile{aspect-ratio:1/1;position:relative;background:var(--pri-s);border-radius:var(--r);border:1px solid var(--border);overflow:hidden;cursor:pointer;}
+.prod-tile{background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;}
 .prod-tile:active{opacity:.9;}
-.prod-tile-img{position:absolute;inset:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:52px;}
+.prod-tile-img{width:100%;aspect-ratio:1/1;overflow:hidden;background:var(--pri-s);display:flex;align-items:center;justify-content:center;font-size:52px;position:relative;}
 .prod-tile-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
 .prod-tile-badge{position:absolute;top:7px;left:7px;background:var(--ora);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;z-index:2;}
-/* Heart/fav button */
-.fav-btn{position:absolute;top:6px;right:6px;z-index:3;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.85);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;font-size:15px;border:none;cursor:pointer;transition:transform .15s;}
-.fav-btn:active{transform:scale(1.3);}
-.prod-tile-body{position:absolute;bottom:0;left:0;right:0;z-index:2;background:rgba(255,255,255,0.93);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);padding:7px 9px 8px;border-top:1px solid rgba(200,228,236,0.5);}
+/* Heart/fav button - now in detail page */
+.fav-btn{width:36px;height:36px;border-radius:50%;background:var(--pri-s);display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);cursor:pointer;transition:transform .15s;flex-shrink:0;}
+.fav-btn:active{transform:scale(1.2);}
+.fav-btn svg{transition:fill .2s;}
+.prod-tile-body{padding:8px 9px 10px;border-top:1px solid var(--border);}
 .prod-tile-store{font-size:9px;color:var(--muted);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.prod-tile-name{font-size:11px;font-weight:700;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
-.prod-tile-price{font-size:12px;font-weight:700;color:var(--ora);}
+.prod-tile-name{font-size:12px;font-weight:700;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.prod-tile-price{font-size:13px;font-weight:700;color:var(--ora);}
 .prod-tile-stock{font-size:9px;color:var(--muted);margin-top:1px;}
 .prod-tile-stock.low{color:#d97706;}
+/* Specs */
+.spec-section{margin:10px 0;}
+.spec-label{font-size:11px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+.spec-options{display:flex;flex-wrap:wrap;gap:6px;}
+.spec-opt{padding:5px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;color:var(--ink);cursor:pointer;background:#fff;}
+.spec-opt.sel{border-color:var(--pri);background:var(--pri-s);color:var(--pri-d);font-weight:700;}
 
 /* CATEGORY DRAWER */
 .cat-subs{display:none;padding:0 0 4px 32px;}
@@ -448,9 +455,10 @@ img{display:block;}
 .cart-go{background:#fff;color:var(--ora);border-radius:9px;padding:8px 16px;font-size:13px;font-weight:700;}
 
 /* PRODUCT DETAIL */
-.detail-sheet{position:fixed;inset:0;background:#fff;z-index:350;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;}
+.detail-sheet{position:fixed;inset:0;background:#fff;z-index:350;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
 .detail-sheet.open{transform:translateY(0);}
-.detail-back{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:0 14px;height:var(--nav);display:flex;align-items:center;gap:10px;z-index:10;}
+.detail-back{background:#fff;border-bottom:1px solid var(--border);padding:0 14px;height:var(--nav);display:flex;align-items:center;gap:10px;z-index:10;flex-shrink:0;}
+.detail-scroll{flex:1;overflow-y:auto;padding-bottom:180px;}
 .detail-back-btn{font-size:22px;color:var(--ink);padding:4px 8px 4px 0;}
 .detail-back-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .detail-main-img{width:100%;aspect-ratio:1/1;background:var(--pri-s);display:flex;align-items:center;justify-content:center;font-size:80px;overflow:hidden;position:relative;}
@@ -470,7 +478,7 @@ img{display:block;}
 .detail-divider{height:1px;background:var(--border);margin:14px 0;}
 .detail-desc-title{font-size:13px;font-weight:700;margin-bottom:6px;}
 .detail-desc{font-size:13px;color:var(--muted);line-height:1.7;}
-.detail-bottom{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);padding:12px 14px calc(12px + var(--sb));}
+.detail-bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);padding:12px 14px calc(12px + var(--sb));z-index:360;}
 .detail-qty-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
 .detail-qty-label{font-size:14px;font-weight:600;flex:1;}
 .qty-ctrl-lg{display:flex;align-items:center;border:2px solid var(--border);border-radius:10px;overflow:hidden;}
@@ -980,16 +988,24 @@ input[type=file]{display:none;}
     <button class="detail-back-btn" onclick="closeDetail()">←</button>
     <div class="detail-back-title" id="detail-back-title">商品詳情</div>
   </div>
-  <div class="detail-main-img" id="detail-main-img"><span style="font-size:80px;">🛍</span></div>
-  <div class="detail-thumbs" id="detail-thumbs"></div>
-  <div class="detail-body">
-    <div class="detail-store" id="detail-store"></div>
-    <div class="detail-name" id="detail-name"></div>
-    <div class="detail-price" id="detail-price"></div>
-    <div class="detail-stock" id="detail-stock"></div>
-    <div class="detail-divider"></div>
-    <div class="detail-desc-title">商品說明</div>
-    <div class="detail-desc" id="detail-desc"></div>
+  <div class="detail-scroll">
+    <div class="detail-main-img" id="detail-main-img"><span style="font-size:80px;">🛍</span></div>
+    <div class="detail-thumbs" id="detail-thumbs"></div>
+    <div class="detail-body">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <div style="flex:1;">
+          <div class="detail-store" id="detail-store"></div>
+          <div class="detail-name" id="detail-name"></div>
+          <div class="detail-price" id="detail-price"></div>
+          <div class="detail-stock" id="detail-stock"></div>
+        </div>
+        <button class="fav-btn" id="detail-fav-btn" onclick="toggleFavDetail()" style="margin-top:4px;"></button>
+      </div>
+      <div id="detail-specs"></div>
+      <div class="detail-divider"></div>
+      <div class="detail-desc-title">商品說明</div>
+      <div class="detail-desc" id="detail-desc"></div>
+    </div>
   </div>
   <div class="detail-bottom">
     <div class="detail-qty-row">
@@ -1218,8 +1234,12 @@ input[type=file]{display:none;}
         <label class="flabel">子分類（選填）</label>
         <select class="fsel" id="f-subcat"></select>
       </div>
-      <label class="flabel">庫存說明</label>
+      <label class="flabel">庫存說明（選填）</label>
       <input class="finput" id="f-stock" placeholder="例：限量 20 盒 / 庫存充足">
+      <label class="flabel">尺寸規格（選填，用逗號分隔）</label>
+      <input class="finput" id="f-sizes" placeholder="例：S,M,L,XL 或 23cm,24cm,25cm">
+      <label class="flabel">顏色規格（選填，用逗號分隔）</label>
+      <input class="finput" id="f-colors" placeholder="例：黑色,白色,粉紅色">
       <label class="flabel">商品說明</label>
       <textarea class="ftextarea" id="f-desc" placeholder="輸入商品詳細說明、注意事項…"></textarea>
       <div class="tog-row"><div class="tog" id="low-tog" onclick="togLow()"><div class="tog-ball"></div></div><span style="font-size:13px;color:var(--ink);">標記「庫存警示」⚠</span></div>
@@ -1338,16 +1358,24 @@ function hideDel(){document.getElementById('del-overlay').classList.remove('show
 /* ── FAVORITES ── */
 function loadFavs(){try{return JSON.parse(localStorage.getItem('momo_favs')||'[]');}catch(e){return[];}}
 function saveFavs(a){try{localStorage.setItem('momo_favs',JSON.stringify(a));}catch(e){}}
+function toggleFavDetail(){
+  const favs=loadFavs();
+  const id=String(curDetailId);
+  const idx=favs.findIndex(f=>String(f)===id);
+  if(idx===-1) favs.push(id); else favs.splice(idx,1);
+  saveFavs(favs);
+  const isFav=favs.findIndex(f=>String(f)===id)!==-1;
+  document.getElementById('detail-fav-btn').innerHTML=isFav
+    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+  renderFavsGrid();
+  showToast(isFav?'❤️ 已加入收藏':'已取消收藏');
+}
 function toggleFav(id,e){
   e.stopPropagation();
-  let favs=loadFavs();
-  const isFav=favs.includes(id);
-  if(isFav){favs=favs.filter(f=>f!==id);}else{favs.push(id);}
-  saveFavs(favs);
-  /* update heart icon in grid */
-  const btn=document.querySelector(`[data-fav="${id}"]`);
-  if(btn)btn.textContent=isFav?'🤍':'❤️';
-  /* refresh favs page if open */
+  const favs=loadFavs();
+  const isFav=favs.some(f=>String(f)===String(id));
+  if(isFav){saveFavs(favs.filter(f=>String(f)!==String(id)));}else{favs.push(String(id));saveFavs(favs);}
   renderFavsGrid();
   showToast(isFav?'已取消收藏':'❤️ 已加入收藏');
 }
@@ -1420,19 +1448,16 @@ function renderGrid(){
   }
   grid.innerHTML=list.map(p=>{
     const img0=getImg0(p);
-    const isFav=loadFavs().includes(p.id);
     return`<div class="prod-tile" onclick="openDetail('${p.id}')">
       <div class="prod-tile-img">
         ${img0?`<img src="${img0}">`:''}
-        <span style="${img0?'opacity:0;':''}">${p.emoji}</span>
+        <span style="${img0?'display:none;':''}">${p.emoji}</span>
       </div>
       ${p.low?`<div class="prod-tile-badge">限量</div>`:''}
-      <button class="fav-btn" data-fav="${p.id}" onclick="toggleFav(${p.id},event)">${isFav?'❤️':'🤍'}</button>
       <div class="prod-tile-body">
-        <div class="prod-tile-store">${p.store}</div>
         <div class="prod-tile-name">${p.name}</div>
         <div class="prod-tile-price">NT$${p.price.toLocaleString()}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
-        <div class="prod-tile-stock${p.low?' low':''}">${p.low?'⚠ ':''}${p.stock}</div>
+        ${p.stock?`<div class="prod-tile-stock${p.low?' low':''}">${p.stock}</div>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1497,31 +1522,77 @@ function openDetail(id){
   const thumbsEl=document.getElementById('detail-thumbs');
   if(imgs.length>1){
     thumbsEl.style.display='flex';
-    thumbsEl.innerHTML=imgs.map((img,i)=>`<div class="detail-thumb${i===0?' active':''}" onclick="switchImg(${i},${id})"><img src="${img}"></div>`).join('');
+    thumbsEl.innerHTML=imgs.map((img,i)=>`<div class="detail-thumb${i===0?' active':''}" onclick="switchImg(${i},'${id}')"><img src="${img}"></div>`).join('');
   }else{thumbsEl.style.display='none';}
+  // 愛心按鈕
+  const isFav=loadFavs().includes(String(id));
+  document.getElementById('detail-fav-btn').innerHTML=isFav
+    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
+    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+  // 規格
+  const specsEl = document.getElementById('detail-specs');
+  let specsHtml = '';
+  if(p.sizes && p.sizes.length>0){
+    specsHtml+=`<div class="spec-section"><div class="spec-label">尺寸</div><div class="spec-options">${p.sizes.map(s=>`<div class="spec-opt" onclick="selectSpec(this,'size')">${s}</div>`).join('')}</div></div>`;
+  }
+  if(p.colors && p.colors.length>0){
+    specsHtml+=`<div class="spec-section"><div class="spec-label">顏色</div><div class="spec-options">${p.colors.map(c=>`<div class="spec-opt" onclick="selectSpec(this,'color')">${c}</div>`).join('')}</div></div>`;
+  }
+  specsEl.innerHTML=specsHtml;
   document.getElementById('detail-sheet').classList.add('open');
 }
+let detailSpecs = {};
+function selectSpec(el, type){
+  el.closest('.spec-options').querySelectorAll('.spec-opt').forEach(o=>o.classList.remove('sel'));
+  el.classList.add('sel');
+  detailSpecs[type] = el.textContent.trim();
+}
+function getSelectedSpecs(){
+  return Object.entries(detailSpecs).map(([k,v])=>`${k==='size'?'尺寸':'顏色'}：${v}`).join('／');
+}
 function switchImg(idx,id){
-  const p=PRODS.find(x=>x.id===id);if(!p||!p.imgs[idx])return;
+  const p=PRODS.find(x=>String(x.id)===String(id));if(!p||!p.imgs[idx])return;
   document.getElementById('detail-main-img').innerHTML=`<img src="${p.imgs[idx]}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">`;
   document.querySelectorAll('.detail-thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
 }
-function closeDetail(){document.getElementById('detail-sheet').classList.remove('open');}
+function closeDetail(){document.getElementById('detail-sheet').classList.remove('open');detailSpecs={};}
 function chgDetailQty(d){detailQty=Math.max(1,detailQty+d);document.getElementById('detail-qty').textContent=detailQty;}
-function addToCart(){if(!curDetailId)return;cart[curDetailId]=detailQty;updCart();closeDetail();showToast('✅ 已加入喊單清單');}
-function confirmBuyNow(){if(!curDetailId)return;cart[curDetailId]=detailQty;updCart();closeDetail();openConfirmModal();}
+function addToCart(){
+  if(!curDetailId)return;
+  cart[curDetailId]={qty:detailQty,specs:getSelectedSpecs()};
+  updCart();closeDetail();showToast('✅ 已加入喊單清單');
+}
+function confirmBuyNow(){
+  if(!curDetailId)return;
+  cart[curDetailId]={qty:detailQty,specs:getSelectedSpecs()};
+  updCart();closeDetail();openConfirmModal();
+}
 
 /* ── CART ── */
 function updCart(){
-  const qty=Object.values(cart).reduce((a,b)=>a+b,0);
-  const yen=Object.entries(cart).reduce((s,[id,q])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*q:0);},0);
+  const qty=Object.values(cart).reduce((a,b)=>a+(b.qty||b),0);
+  const yen=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*(v.qty||v):0);},0);
   document.getElementById('cart-float').style.display=qty?'block':'none';
   document.getElementById('cart-cnt').textContent=`已選 ${qty} 件`;
   document.getElementById('cart-yen').textContent=`NT$ ${yen.toLocaleString()}`;
 }
 function openCartSheet(){
-  const items=Object.entries(cart).map(([id,q])=>{const p=PRODS.find(x=>x.id==id);return`<div class="confirm-item"><span>${p.emoji} ${p.name} × ${q}</span><div style="display:flex;align-items:center;gap:8px;"><span>NT$${(p.price*q).toLocaleString()}</span><button onclick="removeFromCart(${id})" style="font-size:16px;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">✕</button></div></div>`;}).join('');
-  const tot=Object.entries(cart).reduce((s,[id,q])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*q:0);},0);
+  const items=Object.entries(cart).map(([id,v])=>{
+    const p=PRODS.find(x=>x.id==id);
+    const qty=v.qty||v;
+    const specs=v.specs||'';
+    return`<div class="confirm-item">
+      <div style="flex:1;">
+        <div>${p.emoji} ${p.name} × ${qty}</div>
+        ${specs?`<div style="font-size:11px;color:var(--muted);margin-top:2px;">${specs}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span>NT$${(p.price*qty).toLocaleString()}</span>
+        <button onclick="removeFromCart('${id}')" style="font-size:16px;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  const tot=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*(v.qty||v):0);},0);
   document.getElementById('cart-items').innerHTML=items;
   document.getElementById('cart-tot').textContent=`NT$ ${tot.toLocaleString()}`;
   document.getElementById('cart-sheet').classList.add('show');
@@ -1890,7 +1961,9 @@ function openProdForm(id){
       selE=p.emoji;isLow=p.low;
       document.getElementById('f-name').value=p.name;document.getElementById('f-store').value=p.store;
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
-      document.getElementById('f-stock').value=p.stock;document.getElementById('f-desc').value=p.desc||'';
+      document.getElementById('f-stock').value=p.stock||'';
+      document.getElementById('f-sizes').value=(p.sizes||[]).join(',');
+      document.getElementById('f-colors').value=(p.colors||[]).join(',');document.getElementById('f-desc').value=p.desc||'';
       document.getElementById('f-cat').value=p.cat;
       updateSubCatSelect();
       if(p.subcat) document.getElementById('f-subcat').value=p.subcat;
@@ -1931,9 +2004,11 @@ function saveProd(){
   const desc=document.getElementById('f-desc').value.trim();
   const cat=document.getElementById('f-cat').value;
   const subcat=document.getElementById('f-subcat')?.value||'';
-  if(!name||!store||!price||!unit||!stock){showToast('⚠ 請填寫所有必填欄位');return;}
+  const sizes=document.getElementById('f-sizes').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
+  const colors=document.getElementById('f-colors').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
+  if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
   const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
-  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow};
+  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow,sizes,colors};
   if(editId){
     const i=PRODS.findIndex(p=>p.id===editId);
     if(i!==-1) PRODS[i]={id:editId,...prod};
