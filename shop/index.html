@@ -1107,7 +1107,8 @@ input[type=file]{display:none;}
       <label class="flabel">會員編號</label>
       <input class="finput" id="manual-member-id" placeholder="例：M001" style="text-transform:uppercase;">
       <label class="flabel">選擇商品</label>
-      <select class="fsel" id="manual-prod-select" onchange="updateManualProdDetail()"></select>
+      <input class="finput" id="manual-search" placeholder="🔍 搜尋商品名稱…" oninput="filterManualProds()" style="margin-bottom:6px;">
+      <select class="fsel" id="manual-prod-select" onchange="updateManualProdDetail()" size="4" style="height:auto;"></select>
       <div id="manual-prod-detail" style="display:none;margin-bottom:11px;">
         <div id="manual-specs-area"></div>
         <label class="flabel">數量</label>
@@ -1777,7 +1778,13 @@ let manualSpecs = {};
 function buildManualProdSelect(){
   const sel = document.getElementById('manual-prod-select');
   if(!sel) return;
-  sel.innerHTML = '<option value="">選擇商品…</option>' + PRODS.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} NT$${p.price.toLocaleString()}</option>`).join('');
+  const keyword = document.getElementById('manual-search')?.value.trim().toLowerCase() || '';
+  const filtered = keyword ? PRODS.filter(p=>p.name.toLowerCase().includes(keyword)||p.store.toLowerCase().includes(keyword)) : PRODS;
+  sel.innerHTML = '<option value="">選擇商品…</option>' + filtered.map(p=>`<option value="${p.id}">${p.emoji} ${p.name} NT$${p.price.toLocaleString()}</option>`).join('');
+}
+
+function filterManualProds(){
+  buildManualProdSelect();
 }
 
 function updateManualProdDetail(){
@@ -1860,6 +1867,9 @@ window.submitManualOrder = async function(){
   const memberId = document.getElementById('manual-member-id').value.trim().toUpperCase();
   if(!memberId){ showToast('⚠ 請輸入會員編號'); return; }
   if(!manualItems.length){ showToast('⚠ 請加入商品'); return; }
+  if(!window._fbFns){ showToast('❌ Firebase 未初始化'); return; }
+  if(!window._db){ showToast('❌ 資料庫未連線'); return; }
+  showToast('送出中…');
   const tot = manualItems.reduce((s,it)=>s+it.price, 0);
   const { collection, addDoc, serverTimestamp } = window._fbFns;
   const db = window._db;
@@ -1868,19 +1878,21 @@ window.submitManualOrder = async function(){
     memberName: memberId,
     phone: '',
     total: tot,
-    items: manualItems,
+    items: manualItems.map(i=>({...i})),
     status: '待確認',
     createdAt: serverTimestamp(),
     manualByAdmin: true
   };
   try {
-    await addDoc(collection(db,'momoko_orders'), orderData);
-    showToast('✅ 訂單已建立！');
+    console.log('送出代客訂單', orderData);
+    const ref = await addDoc(collection(db,'momoko_orders'), orderData);
+    console.log('成功', ref.id);
+    showToast('✅ 訂單已建立：' + memberId);
     clearManualOrder();
     if(window.loadAllOrders) loadAllOrders();
   } catch(e){
-    showToast('❌ 失敗：' + e.message);
-    console.error(e);
+    showToast('❌ ' + (e.message || e.code || '未知錯誤'));
+    console.error('submitManualOrder error:', e);
   }
 };
 function renderAdminCats(){
