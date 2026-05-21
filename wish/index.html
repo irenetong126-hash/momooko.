@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ももコ 許願箱</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body { font-family: 'Noto Sans TC', sans-serif; background: #f5f9fb; color: #2c2c2a; min-height: 100vh; }
+
+  :root {
+    --blue: #6bb2c4; --blue-dk: #4a8fa0; --blue-lt: #d6edf3; --blue-bg: #eef7fa;
+    --gold: #ffd339; --gold-dk: #e67406; --gold-lt: #fff3b0; --gold-bg: #fffae8;
+    --brown: #993f08;
+    --gray-50: #f5f5f3; --gray-200: #c8c6c0; --gray-400: #888780; --text: #2c2424;
+    --radius-md: 8px; --radius-lg: 14px; --radius-xl: 22px;
+    --shadow-sm: 0 1px 4px rgba(107,178,196,0.10); --shadow-md: 0 4px 20px rgba(107,178,196,0.15);
+  }
+
+  .container { max-width: 680px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+  /* ── Top bar: logo left, admin link far right ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 2rem;
+  }
+  .topbar-logo { display: flex; align-items: center; }
+  .admin-link {
+    font-size: 12px; color: var(--gray-400); background: none; border: none;
+    cursor: pointer; font-family: inherit; opacity: 0.55; transition: opacity 0.2s;
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px;
+    border-radius: var(--radius-md);
+  }
+  .admin-link:hover { opacity: 1; background: var(--blue-bg); color: var(--blue-dk); }
+  .admin-link svg { flex-shrink: 0; }
+  /* back link shown in admin */
+  .back-link {
+    font-size: 13px; color: var(--blue-dk); background: none; border: none;
+    cursor: pointer; font-family: inherit; display: inline-flex; align-items: center;
+    gap: 5px; padding: 4px 8px; border-radius: var(--radius-md); transition: all 0.15s;
+    font-weight: 500;
+  }
+  .back-link:hover { background: var(--blue-bg); }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center; padding: 2.5rem 2rem; background: white;
+    border-radius: var(--radius-xl); margin-bottom: 1.5rem;
+    border: 1.5px solid var(--blue-lt); box-shadow: var(--shadow-sm);
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: ''; position: absolute; top: -30px; right: -30px;
+    width: 140px; height: 140px; border-radius: 50%;
+    background: var(--gold-lt); opacity: 0.6;
+  }
+  .hero::after {
+    content: ''; position: absolute; bottom: -20px; left: -20px;
+    width: 100px; height: 100px; border-radius: 50%;
+    background: var(--blue-lt); opacity: 0.5;
+  }
+  .hero-logo { display: flex; align-items: center; justify-content: center; margin-bottom: 0.25rem; margin-top: 1rem; position: relative; z-index: 1; }
+  .hero h1 { font-size: 22px; font-weight: 700; color: var(--blue-dk); margin-bottom: 0.5rem; position: relative; z-index: 1; }
+  .hero p { font-size: 14px; color: #5a8fa0; line-height: 1.7; position: relative; z-index: 1; }
+  .hero-badge {
+    display: inline-block; margin-top: 1rem; background: var(--gold); color: var(--brown);
+    font-size: 12px; padding: 4px 16px; border-radius: 999px; font-weight: 700;
+    position: relative; z-index: 1;
+  }
+
+  /* ── Config Notice ── */
+  .config-notice {
+    background: var(--gold-bg); border: 1.5px solid var(--gold); border-radius: var(--radius-md);
+    padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: 13px; color: #7a5500; display: none;
+  }
+  .config-notice.show { display: block; }
+  .config-notice strong { display: block; margin-bottom: 4px; }
+  .config-notice code { background: rgba(0,0,0,0.07); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+
+  /* ── Form ── */
+  .form-card {
+    background: white; border: 1.5px solid var(--blue-lt);
+    border-radius: var(--radius-lg); padding: 1.75rem;
+    box-shadow: var(--shadow-sm); margin-bottom: 1rem;
+  }
+  .form-group { margin-bottom: 1.25rem; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--blue-dk); margin-bottom: 6px; }
+  .label-required::after { content: ' *'; color: var(--gold-dk); }
+  input[type="text"], input[type="password"], textarea {
+    width: 100%; padding: 10px 14px;
+    border: 1.5px solid #ddeef3; border-radius: var(--radius-md);
+    background: var(--blue-bg); font-size: 14px; color: var(--text);
+    font-family: inherit; transition: all 0.15s;
+  }
+  input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
+    outline: none; border-color: var(--blue); background: white;
+    box-shadow: 0 0 0 3px rgba(107,178,196,0.15);
+  }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+  /* ── Upload ── */
+  .upload-area {
+    border: 2px dashed #a8d8e4; border-radius: var(--radius-md);
+    padding: 1.5rem; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: var(--blue-bg);
+  }
+  .upload-area:hover { border-color: var(--blue); background: #e0f2f8; }
+  .upload-area input { display: none; }
+  .upload-cam { display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+  .upload-text { font-size: 13px; color: var(--blue-dk); line-height: 1.5; }
+  .upload-text small { font-size: 11px; opacity: 0.65; display: block; margin-top: 2px; }
+  .preview-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .preview-wrap { position: relative; display: inline-block; }
+  .preview-img { width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 2px solid var(--blue-lt); display: block; }
+  .preview-del {
+    position: absolute; top: -7px; right: -7px;
+    background: var(--gold-dk); color: white; border: 2px solid white;
+    border-radius: 50%; width: 20px; height: 20px; font-size: 11px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; line-height: 1;
+  }
+
+  /* ── Buttons ── */
+  .submit-btn {
+    width: 100%; padding: 13px; background: var(--blue); color: white;
+    border: none; border-radius: var(--radius-md); font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+    box-shadow: 0 4px 14px rgba(107,178,196,0.35);
+  }
+  .submit-btn:hover { background: var(--blue-dk); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(107,178,196,0.4); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Success ── */
+  .success-wrap {
+    text-align: center; padding: 2.5rem 2rem; background: white;
+    border-radius: var(--radius-xl); border: 1.5px solid var(--gold); box-shadow: var(--shadow-sm);
+  }
+  .success-wrap .big-icon { display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+  .success-wrap h2 { font-size: 20px; font-weight: 700; color: var(--blue-dk); margin-bottom: 0.5rem; }
+  .success-wrap p { font-size: 14px; color: #5a8fa0; line-height: 1.7; }
+  .btn-again {
+    margin-top: 1.5rem; padding: 10px 28px;
+    background: var(--gold-bg); border: 1.5px solid var(--gold);
+    border-radius: 999px; color: var(--brown); font-size: 14px;
+    font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .btn-again:hover { background: var(--gold-lt); }
+
+  /* ── Admin Login ── */
+  .admin-gate { max-width: 360px; margin: 2rem auto; }
+  .admin-gate-card {
+    background: white; border-radius: var(--radius-lg); padding: 2rem;
+    border: 1.5px solid var(--blue-lt); box-shadow: var(--shadow-md);
+  }
+  .admin-gate-card h2 { font-size: 18px; font-weight: 700; margin-bottom: 1.5rem; text-align: center; color: var(--blue-dk); }
+
+  /* ── Admin Dashboard ── */
+  .admin-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; flex-wrap: wrap; }
+  .admin-header h2 { font-size: 20px; font-weight: 700; color: var(--blue-dk); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-outline {
+    padding: 8px 16px; border: 1.5px solid #c8dfe6; background: white;
+    border-radius: var(--radius-md); font-size: 13px; cursor: pointer;
+    font-family: inherit; color: var(--blue-dk); transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 6px; font-weight: 500;
+  }
+  .btn-outline:hover { border-color: var(--blue); background: var(--blue-bg); }
+  .btn-green { border-color: var(--gold); color: var(--brown); background: var(--gold-bg); }
+  .btn-green:hover { background: var(--gold-lt); border-color: var(--gold-dk); }
+  .btn-refresh { border-color: var(--blue-lt); color: var(--blue-dk); }
+  .btn-refresh:hover { background: var(--blue-bg); }
+
+  /* ── Stats ── */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: white; border-radius: var(--radius-md); padding: 1rem; text-align: center; border: 1.5px solid var(--blue-lt); box-shadow: var(--shadow-sm); }
+  .stat-num { font-size: 26px; font-weight: 700; color: var(--blue); }
+  .stat-label { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── Wish Cards ── */
+  .wish-list { display: flex; flex-direction: column; gap: 10px; }
+  .wish-card {
+    background: white; border: 1.5px solid var(--blue-lt);
+    border-radius: var(--radius-lg); padding: 1.1rem 1.25rem;
+    box-shadow: var(--shadow-sm); transition: box-shadow 0.15s;
+  }
+  .wish-card:hover { box-shadow: var(--shadow-md); border-color: #a8d8e4; }
+  .wish-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+  .wish-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .wish-avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--gold-bg);
+    display: flex; align-items: center; justify-content: center;
+    border: 1.5px solid var(--gold); flex-shrink: 0;
+  }
+  .wish-name { font-weight: 700; font-size: 14px; color: var(--text); }
+  .wish-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+  .wish-time { font-size: 11px; color: var(--gray-400); }
+  .wish-text { font-size: 13.5px; color: #5a6a70; line-height: 1.7; margin-top: 8px; }
+  /* edit mode */
+  .wish-text-edit {
+    width: 100%; margin-top: 8px; padding: 8px 12px;
+    border: 1.5px solid var(--blue); border-radius: var(--radius-md);
+    font-size: 13.5px; color: var(--text); font-family: inherit;
+    line-height: 1.7; resize: vertical; min-height: 70px;
+    background: var(--blue-bg);
+  }
+  .wish-text-edit:focus { outline: none; background: white; box-shadow: 0 0 0 3px rgba(107,178,196,0.15); }
+  .wish-actions { display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; }
+  .btn-save {
+    padding: 5px 16px; background: var(--blue); color: white; border: none;
+    border-radius: var(--radius-md); font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .btn-save:hover { background: var(--blue-dk); }
+  .btn-cancel {
+    padding: 5px 14px; background: white; color: var(--gray-400);
+    border: 1.5px solid #ddd; border-radius: var(--radius-md);
+    font-size: 12px; cursor: pointer; font-family: inherit; transition: all 0.15s;
+  }
+  .btn-cancel:hover { background: var(--gray-50); }
+
+  .wish-photos { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .wish-photo {
+    width: 68px; height: 68px; object-fit: cover;
+    border-radius: 8px; border: 1.5px solid var(--blue-lt);
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .wish-photo:hover { opacity: 0.85; }
+
+  /* icon buttons row */
+  .icon-btns { display: flex; gap: 4px; flex-shrink: 0; }
+  .icon-btn {
+    background: none; border: none; cursor: pointer; color: #ccc;
+    padding: 5px; border-radius: 6px; transition: all 0.15s;
+    display: flex; align-items: center;
+  }
+  .icon-btn:hover.edit { color: var(--blue-dk); background: var(--blue-bg); }
+  .icon-btn:hover.del  { color: var(--gold-dk); background: var(--gold-bg); }
+
+  /* ── New badge ── */
+  .new-badge {
+    display: inline-block; background: var(--gold); color: var(--brown);
+    font-size: 10px; padding: 1px 7px; border-radius: 999px; margin-left: 6px;
+    font-weight: 700; vertical-align: middle;
+  }
+
+  /* ── Empty & Loading ── */
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--gray-400); }
+  .empty-state .empty-icon { font-size: 40px; margin-bottom: 1rem; display: block; }
+  .loading-state { text-align: center; padding: 2rem; color: var(--gray-400); font-size: 14px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--blue-dk); color: white; padding: 10px 20px;
+    border-radius: 999px; font-size: 13px; z-index: 999;
+    animation: fadeInUp 0.3s ease; box-shadow: var(--shadow-md);
+  }
+  .toast.error { background: var(--gold-dk); }
+  .toast.success { background: var(--blue); }
+  @keyframes fadeInUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+
+  /* ── Lightbox ── */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center; z-index: 1000; cursor: pointer;
+  }
+  .lightbox img { max-width: 92%; max-height: 88vh; border-radius: 10px; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+  .lightbox-close {
+    position: fixed; top: 20px; right: 24px; color: white; font-size: 32px;
+    cursor: pointer; background: none; border: none; opacity: 0.8; transition: opacity 0.15s; line-height: 1;
+  }
+  .lightbox-close:hover { opacity: 1; }
+
+  @media (max-width: 480px) {
+    .container { padding: 1.25rem 1rem 3rem; }
+    .hero { padding: 1.75rem 1.25rem; }
+    .stats-row { gap: 8px; }
+    .stat-num { font-size: 22px; }
+    .admin-header { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+const CONFIG = {
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwaiKInD1R0XztXsmW6scKgn83lri6AB97YgO4yLicehuHXrURpkA-M8c0MAUI0pF8w/exec',
+  ADMIN_PASSWORD: '20260922',
+  AUTO_REFRESH_MINUTES: 2,
+};
+
+const isConfigured = () => CONFIG.SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
+// Momoko logo — real brand image
+const LOGO_URL = 'https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.png?raw=true';
+const MOMOKO_LOGO    = `<img src="${LOGO_URL}" alt="ももコ" style="width:140px;height:140px;object-fit:contain;" />`;
+const MOMOKO_LOGO_SM = `<img src="${LOGO_URL}" alt="ももコ" style="width:48px;height:48px;object-fit:contain;" />`;
+
+let S = {
+  view: 'front', adminAuthed: false,
+  wishes: [], loading: false, lightbox: null,
+  submitted: false, editingId: null,
+  form: { name: '', text: '', photos: [] },
+  lastFetch: null, autoTimer: null,
+};
+
+// 偵測網址是否有 ?admin，有才顯示管理員入口
+const IS_ADMIN_URL = location.search.includes('admin');
+
+function render() {
+  document.getElementById('app').innerHTML = S.view === 'front' ? renderFront() : renderAdmin();
+  bind();
+}
+
+// ── FRONT ──
+function renderFront() {
+  if (S.submitted) return renderSuccess();
+  const previews = S.form.photos.map((p, i) => `
+    <div class="preview-wrap">
+      <img src="${p}" class="preview-img" alt="預覽圖"/>
+      <button class="preview-del" onclick="delPhoto(${i})">×</button>
+    </div>`).join('');
+  return `
+    <div class="topbar">
+      <div class="topbar-logo">${MOMOKO_LOGO_SM}</div>
+      ${IS_ADMIN_URL ? `<button class="admin-link" onclick="switchView('admin')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        管理員
+      </button>` : ''}
+    </div>
+    ${!isConfigured() ? `<div class="config-notice show"><strong>⚠️ 尚未完成設定</strong>請把 Google Apps Script 網址填入 <code>CONFIG.SCRIPT_URL</code></div>` : ''}
+    <div class="hero">
+      <div class="hero-logo">${MOMOKO_LOGO}</div>
+      <h1>ももコ 許願箱</h1>
+      <p>把你夢寐以求的商品告訴我們！<br>文字描述或上傳商品圖片都可以</p>
+      <span class="hero-badge">6月🇯🇵福岡連線代購</span>
+    </div>
+    <div class="form-card">
+      <div class="form-group">
+        <label>你的名字 / 暱稱</label>
+        <input type="text" id="f-name" value="${esc(S.form.name)}" placeholder="例：小花、Annie、匿名都可以" maxlength="30"/>
+      </div>
+      <div class="form-group">
+        <label class="label-required">想要的商品描述</label>
+        <textarea id="f-text" placeholder="請填寫商品名稱、品牌、顏色、型號、連結⋯都可以！" rows="4">${esc(S.form.text)}</textarea>
+      </div>
+      <div class="form-group">
+        <label>商品參考圖片（可選，可多張）</label>
+        <div class="upload-area" onclick="document.getElementById('f-photo').click()" role="button" tabindex="0">
+          <input type="file" id="f-photo" accept="image/*" multiple/>
+          <div class="upload-cam">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6bb2c4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <div class="upload-text">點擊上傳商品圖片<small>支援 JPG、PNG、GIF｜單張最大 2MB</small></div>
+        </div>
+        ${previews ? `<div class="preview-grid">${previews}</div>` : ''}
+      </div>
+      <button class="submit-btn" id="submit-btn" onclick="submitWish()">
+        ${S.loading ? '<span class="spinner"></span>送出中⋯' : '送出我的許願'}
+      </button>
+    </div>`;
+}
+
+function renderSuccess() {
+  return `
+    <div class="topbar">
+      <div class="topbar-logo">${MOMOKO_LOGO_SM}</div>
+      ${IS_ADMIN_URL ? `<button class="admin-link" onclick="switchView('admin')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        管理員
+      </button>` : ''}
+    </div>
+    <div class="success-wrap">
+      <div class="big-icon">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#ffd339" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      </div>
+      <h2>許願成功！</h2>
+      <p>感謝你的許願，我們已經收到你的需求了！<br>6月連線代購即將開始，敬請期待</p>
+      <button class="btn-again" onclick="resetForm()">再許一個願</button>
+    </div>`;
+}
+
+// ── ADMIN ──
+function renderAdmin() {
+  if (!S.adminAuthed) return renderAdminLogin();
+
+  const total = S.wishes.length;
+  const withPhoto = S.wishes.filter(w => w.photos && w.photos.length).length;
+  const now = Date.now();
+  const recentIds = new Set(S.wishes.filter(w => now - (w.ts||0) < 3600000).map(w => w.id));
+
+  const cards = S.wishes.slice().reverse().map(w => {
+    const isNew = recentIds.has(w.id);
+    const isEditing = S.editingId === w.id;
+    const photos = (w.photos||[]).map(p =>
+      `<img src="${p}" class="wish-photo" onclick="openLightbox('${p.replace(/'/g,"\\'")}')"/>`
+    ).join('');
+    return `
+      <div class="wish-card">
+        <div class="wish-card-top">
+          <div class="wish-left">
+            <div class="wish-avatar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e67406" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+              <div class="wish-name">${esc(w.name||'匿名')}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+              <div class="wish-meta"><span class="wish-time">${formatTime(w.ts)}</span></div>
+            </div>
+          </div>
+          <div class="icon-btns">
+            <button class="icon-btn edit" onclick="startEdit('${w.id}')" title="編輯">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="icon-btn del" onclick="deleteWish('${w.id}')" title="刪除">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </div>
+        ${isEditing
+          ? `<textarea class="wish-text-edit" id="edit-${w.id}">${esc(w.text)}</textarea>
+             <div class="wish-actions">
+               <button class="btn-cancel" onclick="cancelEdit()">取消</button>
+               <button class="btn-save" onclick="saveEdit('${w.id}')">儲存</button>
+             </div>`
+          : `<div class="wish-text">${esc(w.text)}</div>`
+        }
+        ${photos ? `<div class="wish-photos">${photos}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  const lastUpdate = S.lastFetch ? `上次更新：${new Date(S.lastFetch).toLocaleTimeString('zh-TW')}` : '';
+
+  return `
+    <div class="topbar">
+      <button class="back-link" onclick="switchView('front')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        回到許願箱
+      </button>
+    </div>
+    <div class="admin-header">
+      <h2>許願紀錄管理</h2>
+      <div class="btn-row">
+        <button class="btn-outline btn-refresh" onclick="fetchWishes()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          重新整理
+        </button>
+        <button class="btn-outline btn-green" onclick="exportCSV()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          匯出 Excel
+        </button>
+      </div>
+    </div>
+    ${lastUpdate ? `<p style="font-size:12px;color:var(--gray-400);margin-bottom:1rem;">${lastUpdate}${CONFIG.AUTO_REFRESH_MINUTES?`，每 ${CONFIG.AUTO_REFRESH_MINUTES} 分鐘自動更新`:''}</p>` : ''}
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">總許願數</div></div>
+      <div class="stat-card"><div class="stat-num">${withPhoto}</div><div class="stat-label">附圖許願</div></div>
+      <div class="stat-card"><div class="stat-num">${recentIds.size}</div><div class="stat-label">近1小時新增</div></div>
+    </div>
+    <div class="wish-list">
+      ${S.loading
+        ? '<div class="loading-state">載入中⋯</div>'
+        : S.wishes.length === 0
+          ? '<div class="empty-state"><span class="empty-icon">📭</span>還沒有許願紀錄</div>'
+          : cards}
+    </div>
+    ${S.lightbox ? `
+      <div class="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img src="${S.lightbox}" onclick="event.stopPropagation()"/>
+      </div>` : ''}`;
+}
+
+function renderAdminLogin() {
+  return `
+    <div class="topbar">
+      <button class="back-link" onclick="switchView('front')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        回到許願箱
+      </button>
+    </div>
+    <div class="admin-gate">
+      <div class="admin-gate-card">
+        <h2>管理員登入</h2>
+        <div class="form-group">
+          <input type="password" id="pw-input" placeholder="請輸入密碼"/>
+        </div>
+        <button class="submit-btn" onclick="checkPw()">進入</button>
+      </div>
+    </div>`;
+}
+
+// ── ACTIONS ──
+function switchView(v) {
+  S.view = v;
+  if (v === 'admin' && S.adminAuthed) { fetchWishes(); return; }
+  render();
+}
+
+function resetForm() { S.submitted = false; S.form = { name:'', text:'', photos:[] }; render(); }
+function delPhoto(i) { S.form.photos = S.form.photos.filter((_,idx)=>idx!==i); render(); }
+function openLightbox(src) { S.lightbox = src; render(); }
+function closeLightbox() { S.lightbox = null; render(); }
+
+function startEdit(id) { S.editingId = id; render(); }
+function cancelEdit() { S.editingId = null; render(); }
+
+async function saveEdit(id) {
+  const el = document.getElementById('edit-' + id);
+  if (!el) return;
+  const newText = el.value.trim();
+  if (!newText) { showToast('內容不能為空', 'error'); return; }
+
+  // update locally immediately
+  S.wishes = S.wishes.map(w => w.id === id ? {...w, text: newText} : w);
+  S.editingId = null;
+
+  // sync to sheet
+  if (isConfigured()) {
+    try {
+      await fetch(CONFIG.SCRIPT_URL, {
+        method: 'POST', mode: 'no-cors',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({action:'update', id, text: newText}),
+      });
+    } catch(e) { /* silent */ }
+  }
+  showToast('已儲存', 'success');
+  render();
+}
+
+function checkPw() {
+  const el = document.getElementById('pw-input');
+  if (el && el.value === CONFIG.ADMIN_PASSWORD) {
+    S.adminAuthed = true; S.view = 'admin';
+    fetchWishes(); startAutoRefresh();
+  } else { showToast('密碼錯誤', 'error'); }
+}
+
+async function submitWish() {
+  const text = document.getElementById('f-text')?.value.trim();
+  const name = document.getElementById('f-name')?.value.trim();
+  if (!text) { showToast('請填寫商品描述！', 'error'); return; }
+  if (!isConfigured()) { showToast('請先設定 Google Apps Script 網址', 'error'); return; }
+  S.form = {name, text, photos: S.form.photos};
+  S.loading = true; render();
+  try {
+    await fetch(CONFIG.SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'add', name:name||'匿名', text, photos:S.form.photos}),
+    });
+    S.submitted = true;
+  } catch(e) { showToast('送出失敗，請稍後再試', 'error'); }
+  finally { S.loading = false; render(); }
+}
+
+async function fetchWishes() {
+  if (!isConfigured()) { S.wishes = getDemoWishes(); S.lastFetch = Date.now(); render(); return; }
+  S.loading = true; render();
+  try {
+    const res = await fetch(`${CONFIG.SCRIPT_URL}?action=list`);
+    const data = await res.json();
+    S.wishes = (data.wishes||[]).map(w => ({
+      ...w,
+      photos: w.photos ? (typeof w.photos==='string' ? w.photos.split('|||').filter(Boolean) : w.photos) : [],
+      ts: w.ts||0,
+    }));
+    S.lastFetch = Date.now();
+  } catch(e) { showToast('載入失敗，請確認網路與設定', 'error'); }
+  finally { S.loading = false; render(); }
+}
+
+async function deleteWish(id) {
+  if (!confirm('確定要刪除這筆許願嗎？')) return;
+  S.wishes = S.wishes.filter(w => w.id !== id);
+  render();
+  if (isConfigured()) {
+    try {
+      await fetch(CONFIG.SCRIPT_URL, {
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'delete', id}),
+      });
+    } catch(e) {}
+  }
+  showToast('已刪除', 'success');
+}
+
+function exportCSV() {
+  if (!S.wishes.length) { showToast('沒有資料可以匯出', 'error'); return; }
+  const rows = [['編號','名字','商品描述','有附圖','時間']];
+  S.wishes.forEach((w,i) => rows.push([
+    i+1, w.name||'匿名', w.text,
+    (w.photos&&w.photos.length)?'是':'否',
+    w.ts ? new Date(w.ts).toLocaleString('zh-TW') : '',
+  ]));
+  const csv = rows.map(r => r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download='MOMOKO許願紀錄.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('已下載 CSV 檔案', 'success');
+}
+
+function startAutoRefresh() {
+  if (!CONFIG.AUTO_REFRESH_MINUTES) return;
+  if (S.autoTimer) clearInterval(S.autoTimer);
+  S.autoTimer = setInterval(() => { if (S.view==='admin' && S.adminAuthed) fetchWishes(); }, CONFIG.AUTO_REFRESH_MINUTES*60000);
+}
+
+function bind() {
+  const n=document.getElementById('f-name'); if(n) n.addEventListener('input',e=>{S.form.name=e.target.value;});
+  const t=document.getElementById('f-text'); if(t) t.addEventListener('input',e=>{S.form.text=e.target.value;});
+  const p=document.getElementById('f-photo'); if(p) p.addEventListener('change',handlePhotos);
+  const pw=document.getElementById('pw-input'); if(pw) pw.addEventListener('keydown',e=>{if(e.key==='Enter')checkPw();});
+}
+
+function handlePhotos(e) {
+  Array.from(e.target.files).forEach(f => {
+    if(f.size>2*1024*1024){showToast(`${f.name} 超過 2MB，已略過`,'error');return;}
+    const r=new FileReader();
+    r.onload=ev=>{S.form.photos=[...S.form.photos,ev.target.result];render();};
+    r.readAsDataURL(f);
+  });
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function formatTime(ts){if(!ts)return'';const d=new Date(ts);return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;}
+
+let toastTimer;
+function showToast(msg,type=''){
+  const ex=document.querySelector('.toast'); if(ex)ex.remove();
+  clearTimeout(toastTimer);
+  const el=document.createElement('div'); el.className=`toast ${type}`; el.textContent=msg;
+  document.body.appendChild(el); toastTimer=setTimeout(()=>el.remove(),3000);
+}
+
+function getDemoWishes(){return[
+  {id:'demo1',name:'小花',text:'SKII 神仙水 230ml，還有 Whitmor 收納籃（白色）',photos:[],ts:Date.now()-3600000},
+  {id:'demo2',name:'Annie',text:'LANEIGE 水庫保濕精華，還有 Innisfree 小綠瓶',photos:[],ts:Date.now()-7200000},
+  {id:'demo3',name:'Mimi',text:'Dyson Airwrap 捲髮棒，如果可以的話也幫我看看 YSL 脣膏',photos:[],ts:Date.now()-86400000},
+];}
+
+render();
+</script>
+</body>
+</html>
