@@ -114,7 +114,7 @@
   .upload-text small { font-size: 11px; opacity: 0.65; display: block; margin-top: 2px; }
   .preview-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   .preview-wrap { position: relative; display: inline-block; }
-  .preview-img { width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 2px solid var(--blue-lt); display: block; }
+  .preview-img { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 2px solid var(--blue-lt); display: block; }
   .preview-del {
     position: absolute; top: -7px; right: -7px;
     background: var(--gold-dk); color: white; border: 2px solid white;
@@ -362,7 +362,7 @@ function renderFront() {
           <div class="upload-cam">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#6bb2c4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           </div>
-          <div class="upload-text">點擊上傳商品圖片<small>支援 JPG、PNG、GIF｜單張最大 2MB</small></div>
+          <div class="upload-text">點擊上傳商品圖片<small>支援 JPG、PNG、GIF｜單張最大 10MB</small></div>
         </div>
         ${previews ? `<div class="preview-grid">${previews}</div>` : ''}
       </div>
@@ -630,7 +630,7 @@ function bind() {
 
 function handlePhotos(e) {
   Array.from(e.target.files).forEach(f => {
-    if(f.size>2*1024*1024){showToast(`${f.name} 超過 2MB，已略過`,'error');return;}
+    if(f.size>10*1024*1024){showToast(`${f.name} 超過 10MB，已略過`,'error');return;}
     const r=new FileReader();
     r.onload=ev=>{S.form.photos=[...S.form.photos,ev.target.result];render();};
     r.readAsDataURL(f);
