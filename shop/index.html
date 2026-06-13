@@ -304,6 +304,11 @@ window.loadProdsAndCats = async function() {
     ]);
     if (prodsSnap.docs.length > 0) {
       PRODS = prodsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      PRODS.sort((a,b)=>{
+        const ta = a.createdAt?.toMillis?.() || 0;
+        const tb = b.createdAt?.toMillis?.() || 0;
+        return tb - ta;
+      });
       saveP(PRODS); renderGrid();
     }
     if (catsDoc.exists() && catsDoc.data().list?.length > 0) {
@@ -2194,11 +2199,12 @@ async function saveProd(){
   try{
     if(editId){
       const i=PRODS.findIndex(p=>String(p.id)===String(editId));
-      if(i!==-1) PRODS[i]={id:editId,...prod};
+      if(i!==-1) PRODS[i]={...PRODS[i],...prod};
       await saveProdFB(prod, editId);
     } else {
-      const newId=await saveProdFB(prod);
-      PRODS.push({id:newId,...prod});
+      const prodWithTime = {...prod, createdAt: window._fbFns.serverTimestamp()};
+      const newId=await saveProdFB(prodWithTime);
+      PRODS.unshift({id:newId,...prod,createdAt:{toMillis:()=>Date.now()}});
     }
     saveP(PRODS);closeSheet('prod-form-sheet');renderAList();renderAStatsProds();renderGrid();
     showToast(editId?'✅ 商品已更新':'✅ 商品已新增');
