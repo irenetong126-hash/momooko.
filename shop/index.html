@@ -175,14 +175,13 @@ window.saveOrderProgFB = async function(oi) {
 
 // 儲存商品到 Firestore
 window.saveProdFB = async function(prod, fbId) {
-  try {
-    if (fbId) {
-      await setDoc(doc(db,'momoko_products',String(fbId)), prod);
-    } else {
-      const ref = await addDoc(collection(db,'momoko_products'), prod);
-      return ref.id;
-    }
-  } catch(e) { console.error(e); }
+  if (fbId) {
+    await setDoc(doc(db,'momoko_products',String(fbId)), prod);
+    return fbId;
+  } else {
+    const ref = await addDoc(collection(db,'momoko_products'), prod);
+    return ref.id;
+  }
 };
 
 // 刪除商品
@@ -1766,7 +1765,7 @@ function renderAList(){
     return`<div class="aprod">
       <div class="aprod-img">${img0?`<img src="${img0}">`:`<span class="aprod-emoji-fb">${p.emoji}</span>`}</div>
       <div class="aprod-info"><div class="aprod-name">${p.name}</div><div class="aprod-meta">${p.store}｜${catObj?catObj.label:p.cat}${p.low?' ⚠':''}</div><div class="aprod-price">NT$${p.price.toLocaleString()} / ${p.unit}</div></div>
-      <div class="aprod-actions"><button class="btn-edit" onclick="openProdForm(${p.id})">編輯</button><button class="btn-del" onclick="delProd(${p.id})">刪除</button></div>
+      <div class="aprod-actions"><button class="btn-edit" onclick="openProdForm('${p.id}')">編輯</button><button class="btn-del" onclick="delProd('${p.id}')">刪除</button></div>
     </div>`;
   }).join('');
 }
@@ -2138,7 +2137,7 @@ function openProdForm(id){
   document.getElementById('low-tog').classList.remove('on');
   rebuildCatSelect();
   if(id){
-    const p=PRODS.find(x=>x.id===id);
+    const p=PRODS.find(x=>String(x.id)===String(id));
     if(p){
       selE=p.emoji;isLow=p.low;
       document.getElementById('f-name').value=p.name;document.getElementById('f-store').value=p.store;
@@ -2177,7 +2176,7 @@ function resetImgUI(){
 }
 function pickE(e){selE=e;document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.toggle('sel',el.textContent===e));}
 function togLow(){isLow=!isLow;document.getElementById('low-tog').classList.toggle('on',isLow);}
-function saveProd(){
+async function saveProd(){
   const name=document.getElementById('f-name').value.trim();
   const store=document.getElementById('f-store').value.trim();
   const price=parseInt(document.getElementById('f-price').value);
@@ -2191,22 +2190,26 @@ function saveProd(){
   if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
   const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
   const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow,sizes,colors};
-  if(editId){
-    const i=PRODS.findIndex(p=>p.id===editId);
-    if(i!==-1) PRODS[i]={id:editId,...prod};
-    saveProdFB(prod, editId);
-  } else {
-    const newId=Date.now();
-    PRODS.push({id:newId,...prod});
-    saveProdFB({id:newId,...prod}, newId);
+  try{
+    if(editId){
+      const i=PRODS.findIndex(p=>String(p.id)===String(editId));
+      if(i!==-1) PRODS[i]={id:editId,...prod};
+      await saveProdFB(prod, editId);
+    } else {
+      const newId=await saveProdFB(prod);
+      PRODS.push({id:newId,...prod});
+    }
+    saveP(PRODS);closeSheet('prod-form-sheet');renderAList();renderAStatsProds();renderGrid();
+    showToast(editId?'✅ 商品已更新':'✅ 商品已新增');
+  }catch(e){
+    showToast('❌ 儲存失敗：'+(e.message||e.code||'未知錯誤'));
+    console.error('saveProd error:',e);
   }
-  saveP(PRODS);closeSheet('prod-form-sheet');renderAList();renderAStatsProds();renderGrid();
-  showToast(editId?'✅ 商品已更新':'✅ 商品已新增');
 }
 function delProd(id){
-  const p=PRODS.find(x=>x.id===id);
+  const p=PRODS.find(x=>String(x.id)===String(id));
   if(!confirm(`確定刪除「${p?.name}」？此操作無法復原`)) return;
-  PRODS=PRODS.filter(x=>x.id!==id);delete cart[id];
+  PRODS=PRODS.filter(x=>String(x.id)!==String(id));delete cart[id];
   saveP(PRODS);
   delProdFB(id).then(()=>{
     renderAList();renderAStatsProds();renderGrid();updCart();showToast('🗑 已刪除');
