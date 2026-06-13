@@ -2138,6 +2138,7 @@ function openProdForm(id){
   rebuildCatSelect();
   if(id){
     const p=PRODS.find(x=>String(x.id)===String(id));
+    console.log('openProdForm id=',id,'found=',p,'PRODS ids=',PRODS.map(x=>x.id));
     if(p){
       selE=p.emoji;isLow=p.low;
       document.getElementById('f-name').value=p.name;document.getElementById('f-store').value=p.store;
