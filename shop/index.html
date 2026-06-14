@@ -217,6 +217,37 @@ window.sendOrderEmail = function(order) {
   }).then(()=>console.log('Email 發送成功')).catch(e=>console.error('EmailJS error:', e));
 };
 
+// 新增會員
+window.createMember = async function(){
+  const memberId = document.getElementById('new-mem-id').value.trim().toUpperCase();
+  const name = document.getElementById('new-mem-name').value.trim();
+  const phone = document.getElementById('new-mem-phone').value.trim();
+  const lineNick = document.getElementById('new-mem-line').value.trim();
+  const pw = document.getElementById('new-mem-pw').value.trim();
+  const resultEl = document.getElementById('member-result');
+  if(!memberId||!name||!pw){ showToast('⚠ 請填寫會員編號、姓名和密碼'); return; }
+  if(pw.length < 6){ showToast('⚠ 密碼至少 6 個字元'); return; }
+  const email = memberId.toLowerCase() + '@momoko.com';
+  resultEl.textContent = '建立中…';
+  try {
+    const { createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+    await createUserWithEmailAndPassword(auth, email, pw);
+    await setDoc(doc(db, 'momoko_members', memberId), { memberId, name, phone, lineNick, email, createdAt: serverTimestamp() });
+    resultEl.textContent = '';
+    showToast(`✅ 會員 ${memberId} 建立成功！`);
+    document.getElementById('new-mem-id').value='';
+    document.getElementById('new-mem-name').value='';
+    document.getElementById('new-mem-phone').value='';
+    document.getElementById('new-mem-line').value='';
+    document.getElementById('new-mem-pw').value='';
+  } catch(e) {
+    if(e.code==='auth/email-already-in-use') resultEl.textContent='❌ 此會員編號已存在';
+    else resultEl.textContent='❌ ' + (e.message||e.code);
+    showToast('❌ 建立失敗');
+    console.error(e);
+  }
+};
+
 // 儲存分類
 window.saveCatsFB = async function(cats) {
   try { await setDoc(doc(db,'momoko_settings','cats'), { list: cats }); } catch(e) { console.error(e); }
@@ -1030,30 +1061,28 @@ input[type=file]{display:none;}
 <div class="fullpage" id="guide-page">
   <div class="back-bar"><button class="back-btn" onclick="closeGuide()">←</button><div class="back-bar-title">ももコ・もも購新手村</div></div>
   <div class="guide-hero-bg">
-    <h2>歡迎來到ももコ・もも購！</h2>
-    <div style="font-size:15px;font-weight:700;color:#fff;margin:6px 0 4px;">🇯🇵 連線喊單＋＋區</div>
-    <p>第一次使用嗎？跟著步驟輕鬆完成！</p>
+    <h2>歡迎大家加入～</h2>
+    <div style="font-size:15px;font-weight:700;color:#fff;margin:6px 0 4px;">🇯🇵 連線須知一次看懂！</div>
+    <p>為了方便大家挑選購物，可以至新上線的官網逛逛呦！</p>
   </div>
   <div class="guide-steps">
-    <div class="gs"><div class="gs-num">1</div><div class="gs-body"><div class="gs-title">確認目前行程</div><div class="gs-desc">在首頁查看目前的連線行程，包含出發日期、地點、截止時間。</div><span class="gs-tag">📍 首頁 → 行程卡片</span></div></div>
+    <div class="gs"><div class="gs-num">1</div><div class="gs-body"><div class="gs-title">開通會員帳號</div><div class="gs-desc">新加入的朋友，請私訊官方 LINE 並點選加入官網會員，回傳資料給我們，等候回覆即可開通帳號！</div><span class="gs-tag">💬 <a href="https://lin.ee/Pn0UEfk" style="color:var(--pri-d);font-weight:700;">點我私訊 ももコ →</a></span></div></div>
     <div class="guide-div"></div>
-    <div class="gs"><div class="gs-num">2</div><div class="gs-body"><div class="gs-title">選擇商品・確認購買</div><div class="gs-desc">點選「喊單」頁，點入商品看詳情，選數量後按「確認購買」。</div><span class="gs-tag">🛍 底部「喊單」頁</span></div></div>
+    <div class="gs"><div class="gs-num">2</div><div class="gs-body"><div class="gs-title">選擇下單方式</div><div class="gs-desc">可以選擇任一方式下單：<br>① 官網下單：直接於網站選購，喊單成功後請截圖回傳編號給我們以便確認。<br>② 私訊喊單：將商品截圖私訊給我們。</div><span class="gs-tag">⚠ 喊單即視同確認下單，下單前請務必深思熟慮！</span></div></div>
     <div class="guide-div"></div>
-    <div class="gs"><div class="gs-num">3</div><div class="gs-body"><div class="gs-title">私訊單號給 ももコ</div><div class="gs-desc">喊完單後畫面會出現您的專屬單號，請截圖並將單號私訊給 ももコ@511srzsu 完成確認。</div><span class="gs-tag">💬 <a href="https://lin.ee/Pn0UEfk" style="color:var(--pri-d);font-weight:700;">點我前往 ももコ LINE →</a></span></div></div>
+    <div class="gs"><div class="gs-num">3</div><div class="gs-body"><div class="gs-title">付款及運費說明</div><div class="gs-desc">① 付款統一於「7/2 連線收單後」提供匯款資訊，請於 48 小時內完成匯款，逾期視為棄單。<br>② 寄送方式一律採用賣貨便 +38 元。體積較大商品使用郵寄 +80（郵寄無法參加免運活動）。<br>③ 高單價金額高於 3,800 元之商品，將酌收訂金。</div><span class="gs-tag">💳 帳單由 LINE 傳送</span></div></div>
     <div class="guide-div"></div>
-    <div class="gs"><div class="gs-num">4</div><div class="gs-body"><div class="gs-title">收到通知・完成付款</div><div class="gs-desc">採買完成後 ももコ 會透過 LINE 發送帳單通知，請於期限內完成轉帳。</div><span class="gs-tag">💳 帳單由 LINE 傳送</span></div></div>
-    <div class="guide-div"></div>
-    <div class="gs"><div class="gs-num">5</div><div class="gs-body"><div class="gs-title">追蹤採買進度</div><div class="gs-desc">在「採買進度」頁查看您每件商品目前的狀態與備註，隨時掌握最新動態。</div><span class="gs-tag">📦 底部「進度」頁</span></div></div>
+    <div class="gs"><div class="gs-num">4</div><div class="gs-body"><div class="gs-title">出貨與採購說明</div><div class="gs-desc">① 若商品遇缺貨或未成功購買，我們會主動通知您，也可在官網隨時確認進度。<br>② 若採購商品超出托運重量，將統一採取「集運」方式寄回台，商品金額皆不需二補運費，請放心！<br>③ 集運商品預計 5–14 個工作天內完成分裝並寄出，遇天候等因素時程會再拉長。</div><span class="gs-tag">📦 底部「進度」頁隨時追蹤</span></div></div>
   </div>
   <div class="guide-notice">
     <h4>⚠ 注意事項</h4>
     <p>
-      ✦ 當喊完單後請聯繫 <a href="https://lin.ee/Pn0UEfk" style="color:var(--ora);font-weight:700;">ももコ@511srzsu →</a><br>
+      ✦ 棄單者將一律列入黑名單，後續不接受任何喊單！<br>
       ✦ 若商品有售完或品項缺貨時，將會另行通知您<br>
       ✦ 如有疑問請直接與 <a href="https://lin.ee/Pn0UEfk" style="color:var(--ora);font-weight:700;">ももコ@511srzsu →</a> 詢問
     </p>
   </div>
-  <div style="padding:14px 14px 48px;"><button class="btn-ora2" onclick="closeGuide();goPage('shop');">馬上去喊單 →</button></div>
+  <div style="padding:14px 14px 48px;"><button class="btn-ora2" onclick="closeGuide();goPage('shop');">馬上去逛逛 →</button></div>
 </div>
 
 <!-- ADMIN — FIX: 3 tabs, 整體進度 merged into 訂單 -->
@@ -1065,6 +1094,7 @@ input[type=file]{display:none;}
       <div class="atab" onclick="switchATab(this,'cats')">🗂 分類</div>
       <div class="atab" onclick="switchATab(this,'orders')">📋 訂單</div>
       <div class="atab" onclick="switchATab(this,'manual')">✏️ 代客</div>
+      <div class="atab" onclick="switchATab(this,'members')">👤 會員</div>
       <div class="atab" onclick="switchATab(this,'trip')">✈️ 行程</div>
     </div>
 
@@ -1103,6 +1133,23 @@ input[type=file]{display:none;}
         <span style="font-size:11px;color:var(--muted);" id="order-count"></span>
       </div>
       <div id="admin-orders-list"></div>
+    </div>
+
+    <!-- 會員管理 -->
+    <div class="apanel" id="apanel-members">
+      <div class="admin-sec-title" style="margin-bottom:12px;">👤 新增會員</div>
+      <label class="flabel">會員編號（登入用）</label>
+      <input class="finput" id="new-mem-id" placeholder="例：M003" style="text-transform:uppercase;">
+      <label class="flabel">姓名</label>
+      <input class="finput" id="new-mem-name" placeholder="客人姓名">
+      <label class="flabel">電話</label>
+      <input class="finput" id="new-mem-phone" placeholder="09xx-xxx-xxx" type="tel">
+      <label class="flabel">LINE 社群暱稱</label>
+      <input class="finput" id="new-mem-line" placeholder="LINE 上的暱稱">
+      <label class="flabel">登入密碼</label>
+      <input class="finput" id="new-mem-pw" placeholder="設定初始密碼" type="password">
+      <button class="btn-pri" onclick="createMember()" style="margin-bottom:8px;">＋ 建立會員帳號</button>
+      <div id="member-result" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
     </div>
 
     <!-- 代客下單 -->
@@ -1740,6 +1787,7 @@ function switchATab(el,id){
   if(id==='orders')renderAdminOrders();
   if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
   if(id==='manual'){buildManualProdSelect();}
+  if(id==='members'){}
   if(id==='trip'&&window.loadTrip)loadTrip();
 }
 function openAdmin(){
