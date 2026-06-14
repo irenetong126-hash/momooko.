@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>ももコ・もも購</title>
-<link rel="icon" type="image/png" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.png?raw=true">
-<link rel="apple-touch-icon" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.png?raw=true">
+<link rel="icon" type="image/jpeg" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.jpg?raw=true">
+<link rel="apple-touch-icon" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.jpg?raw=true">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Shippori+Mincho:wght@400;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
@@ -37,7 +37,7 @@ onAuthStateChanged(auth, async (user) => {
   if (user) {
     const memberId = user.email.split('@')[0].toUpperCase();
     try {
-      const memberDoc = await getDoc(doc(db, 'momoko_members', memberId));
+      const memberDoc = await getDoc(doc(db, 'members', memberId));
       const memberData = memberDoc.exists() ? memberDoc.data() : {};
       window._currentMember = { uid: user.uid, memberId, ...memberData };
     } catch(e) {
@@ -234,7 +234,7 @@ window.createMember = async function(){
   try {
     const { createUserWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     await createUserWithEmailAndPassword(auth, email, pw);
-    await setDoc(doc(db, 'momoko_members', memberId), { memberId, name, phone, lineNick, email, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'members', memberId), { memberId, name, phone, lineNick, email, createdAt: serverTimestamp() });
     resultEl.textContent = '';
     showToast(`✅ 會員 ${memberId} 建立成功！`);
     document.getElementById('new-mem-id').value='';
