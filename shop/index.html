@@ -38,9 +38,11 @@ onAuthStateChanged(auth, async (user) => {
     const memberId = user.email.split('@')[0].toUpperCase();
     try {
       const memberDoc = await getDoc(doc(db, 'members', memberId));
+      console.log('member doc exists:', memberDoc.exists(), 'data:', memberDoc.data());
       const memberData = memberDoc.exists() ? memberDoc.data() : {};
       window._currentMember = { uid: user.uid, memberId, ...memberData };
     } catch(e) {
+      console.error('member fetch error:', e);
       window._currentMember = { uid: user.uid, memberId };
     }
     if (memberId === 'M000') {
@@ -111,9 +113,9 @@ window.submitOrderFB = async function() {
     document.getElementById('success-ordnum').textContent = shortId;
     document.getElementById('success-modal').classList.add('show');
     // 發送 Email 通知
+    const lineNick = localStorage.getItem('momo_line_nick') || '未填寫';
     try {
       const itemsList = items.map(i=>`${i.name} × ${i.qty}${i.specs?' ('+i.specs+')':''} = NT$${i.price.toLocaleString()}`).join(', ');
-      const lineNick = localStorage.getItem('momo_line_nick') || '未填寫';
       await window.emailjs.send('service_qidtqgc', 'template_iuiyfem', {
         name: m.memberId,
         time: new Date().toLocaleString('zh-TW'),
@@ -128,6 +130,22 @@ window.submitOrderFB = async function() {
     } catch(emailErr) {
       console.error('❌ Email 失敗:', emailErr);
     }
+    // 同步到 Google Sheets（不管 Email 成不成功都執行）
+    try {
+      await fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          date: new Date().toLocaleDateString('zh-TW'),
+          memberId: m.memberId,
+          lineNick,
+          items: items.map(i=>({...i, cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0})),
+          total: tot
+        })
+      });
+      console.log('✅ Sheets 同步成功');
+    } catch(e){ console.error('Sheets sync error:',e); }
   } catch(e) {
     showToast('❌ 送出失敗，請稍後再試');
     console.error(e);
@@ -1128,11 +1146,10 @@ input[type=file]{display:none;}
 
     <!-- 訂單 + 整體進度 (merged) -->
     <div class="apanel" id="apanel-orders">
-      <!-- FIX: real-time stats from actual order data -->
       <div class="admin-stats" id="order-overview-stats"></div>
       <div class="admin-sec-hd">
         <div class="admin-sec-title">所有喊單紀錄</div>
-        <span style="font-size:11px;color:var(--muted);" id="order-count"></span>
+        <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出全部到試算表</button>
       </div>
       <div id="admin-orders-list"></div>
     </div>
@@ -1141,7 +1158,8 @@ input[type=file]{display:none;}
     <div class="apanel" id="apanel-members">
       <div class="admin-sec-title" style="margin-bottom:12px;">👤 新增會員</div>
       <label class="flabel">會員編號（登入用）</label>
-      <input class="finput" id="new-mem-id" placeholder="例：M003" style="text-transform:uppercase;">
+      <input class="finput" id="new-mem-id" placeholder="例：M003" style="text-transform:uppercase;" oninput="checkMemberId(this.value)">
+      <div id="mem-id-check" style="font-size:11px;margin-top:-8px;margin-bottom:8px;"></div>
       <label class="flabel">姓名</label>
       <input class="finput" id="new-mem-name" placeholder="客人姓名">
       <label class="flabel">電話</label>
@@ -1315,6 +1333,8 @@ input[type=file]{display:none;}
       </div>
       <label class="flabel">庫存說明（選填）</label>
       <input class="finput" id="f-stock" placeholder="例：限量 20 盒 / 庫存充足">
+      <label class="flabel">成本（日圓，僅後台顯示）</label>
+      <input class="finput" id="f-cost" placeholder="例：1200" type="number">
       <label class="flabel">尺寸規格（選填，用逗號分隔）</label>
       <input class="finput" id="f-sizes" placeholder="例：S,M,L,XL 或 23cm,24cm,25cm">
       <label class="flabel">顏色規格（選填，用逗號分隔）</label>
@@ -1409,12 +1429,17 @@ window.showApp = function(member){
   document.getElementById('mem-name-text').textContent = name;
   document.getElementById('mem-phone-text').textContent = member.phone || '';
   document.getElementById('mem-id-display').textContent = '會員編號：' + member.memberId;
-  if(member.memberId === 'M000') {
-    document.getElementById('admin-menu-card').style.display = 'block';
-  }
+  // 只有 M000 才顯示後台入口
+  const adminCard = document.getElementById('admin-menu-card');
+  if(adminCard) adminCard.style.display = member.memberId === 'M000' ? 'block' : 'none';
   const savedNick = localStorage.getItem('momo_line_nick') || '';
   const nickInput = document.getElementById('line-nickname-input');
   if(nickInput) nickInput.value = savedNick;
+  // 顯示登出按鈕
+  const logoutBtn = document.getElementById('logout-btn');
+  const loginBtn = document.getElementById('login-btn-mem');
+  if(logoutBtn) logoutBtn.style.display = 'flex';
+  if(loginBtn) loginBtn.style.display = 'none';
 }
 
 /* ── LINE NICKNAME ── */
@@ -1800,9 +1825,9 @@ function openAdmin(){
 }
 function closeAdmin(){
   document.getElementById('admin-overlay').style.display='none';
-  // M000 關閉後台後回到登入畫面選項
   if(window._currentMember?.memberId === 'M000'){
-    showToast('已離開後台');
+    document.getElementById('admin-menu-card').style.display='block';
+    showToast('已離開後台，點選下方回到後台');
   }
 }
 function renderAStatsProds(){
@@ -1820,7 +1845,7 @@ function renderAList(){
     return`<div class="aprod">
       <div class="aprod-img">${img0?`<img src="${img0}">`:`<span class="aprod-emoji-fb">${p.emoji}</span>`}</div>
       <div class="aprod-info"><div class="aprod-name">${p.name}</div><div class="aprod-meta">${p.store}｜${catObj?catObj.label:p.cat}${p.low?' ⚠':''}</div><div class="aprod-price">NT$${p.price.toLocaleString()} / ${p.unit}</div></div>
-      <div class="aprod-actions"><button class="btn-edit" onclick="openProdForm('${p.id}')">編輯</button><button class="btn-del" onclick="delProd('${p.id}')">刪除</button></div>
+      <div class="aprod-actions"><button class="btn-edit" onclick="openProdForm('${p.id}')">編輯</button><button class="btn-del" onclick="delProd('${p.id}')">刪除</button><button style="padding:4px 8px;font-size:11px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;color:#0369a1;font-weight:700;" onclick="copyProdLink('${p.id}')">🔗 複製連結</button></div>
     </div>`;
   }).join('');
 }
@@ -1931,6 +1956,56 @@ function removeManualItem(i){
   renderManualItems();
 }
 
+let checkMemberTimer = null;
+function checkMemberId(val){
+  const el = document.getElementById('mem-id-check');
+  val = val.trim().toUpperCase();
+  if(!val){ el.textContent=''; return; }
+  el.textContent='檢查中…'; el.style.color='var(--muted)';
+  clearTimeout(checkMemberTimer);
+  checkMemberTimer = setTimeout(async ()=>{
+    try{
+      const snap = await window._fbFns.getDoc(window._fbFns.doc(window._db,'members',val));
+      if(snap.exists()){
+        el.textContent='❌ 此會員編號已存在';
+        el.style.color='#ef4444';
+      } else {
+        el.textContent='✅ 可以使用';
+        el.style.color='#22c55e';
+      }
+    }catch(e){ el.textContent=''; }
+  }, 600);
+}
+
+async function exportAllOrdersToSheets(){
+  if(!ORDERS.length){ showToast('⚠ 沒有訂單資料'); return; }
+  showToast('匯出中…');
+  let success = 0;
+  for(const o of ORDERS){
+    try{
+      await fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec',{
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          date: o.date || '',
+          memberId: o.memberId || '',
+          lineNick: o.lineNick || '',
+          items: (o.items||[]).map(i=>({
+            name: i.name,
+            specs: i.specs||'',
+            qty: i.qty,
+            price: i.price,
+            cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0
+          })),
+          total: o.total
+        })
+      });
+      success++;
+    } catch(e){ console.error('匯出失敗:', o.id, e); }
+  }
+  showToast(`✅ 已匯出 ${success} 筆訂單到試算表！`);
+}
+
 function clearManualOrder(){
   manualItems = [];
   manualSpecs = {};
@@ -1966,6 +2041,19 @@ window.submitManualOrder = async function(){
     const ref = await addDoc(collection(db,'momoko_orders'), orderData);
     console.log('成功', ref.id);
     showToast('✅ 訂單已建立：' + memberId);
+    // 同步到 Google Sheets
+    fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        date: new Date().toLocaleDateString('zh-TW'),
+        memberId,
+        lineNick: '',
+        items: manualItems.map(i=>({...i, cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0})),
+        total: tot
+      })
+    }).catch(e=>console.error('Sheets sync error:',e));
     clearManualOrder();
     if(window.loadAllOrders) loadAllOrders();
   } catch(e){
@@ -2188,7 +2276,7 @@ function openProdForm(id){
   resetImgUI();
   document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
   document.getElementById('form-title').textContent=id?'編輯商品':'新增商品';
-  ['f-name','f-store','f-price','f-unit','f-stock','f-desc'].forEach(i=>document.getElementById(i).value='');
+  ['f-name','f-store','f-price','f-unit','f-stock','f-desc','f-sizes','f-colors','f-cost'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('low-tog').classList.remove('on');
   rebuildCatSelect();
   if(id){
@@ -2200,7 +2288,8 @@ function openProdForm(id){
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock||'';
       document.getElementById('f-sizes').value=(p.sizes||[]).join(',');
-      document.getElementById('f-colors').value=(p.colors||[]).join(',');document.getElementById('f-desc').value=p.desc||'';
+      document.getElementById('f-colors').value=(p.colors||[]).join(',');
+      document.getElementById('f-cost').value=p.cost||'';document.getElementById('f-desc').value=p.desc||'';
       document.getElementById('f-cat').value=p.cat;
       updateSubCatSelect();
       if(p.subcat) document.getElementById('f-subcat').value=p.subcat;
@@ -2243,9 +2332,10 @@ async function saveProd(){
   const subcat=document.getElementById('f-subcat')?.value||'';
   const sizes=document.getElementById('f-sizes').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
   const colors=document.getElementById('f-colors').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
+  const cost=parseInt(document.getElementById('f-cost').value)||0;
   if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
   const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
-  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow,sizes,colors};
+  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow,sizes,colors,cost};
   try{
     if(editId){
       const i=PRODS.findIndex(p=>String(p.id)===String(editId));
@@ -2291,6 +2381,25 @@ function goPage(name){
 /* ── GUIDE ── */
 function openGuide(){document.getElementById('guide-page').style.display='block';window.scrollTo(0,0);}
 function closeGuide(){document.getElementById('guide-page').style.display='none';}
+
+function copyProdLink(id){
+  const url = `${location.origin}${location.pathname}#product-${id}`;
+  navigator.clipboard.writeText(url).then(()=>showToast('🔗 連結已複製！')).catch(()=>{
+    prompt('複製以下連結：', url);
+  });
+}
+
+function handleUrlHash(){
+  const hash = location.hash;
+  if(hash.startsWith('#product-')){
+    const id = hash.replace('#product-','');
+    setTimeout(()=>{
+      goPage('shop');
+      setTimeout(()=>openDetail(id), 500);
+    }, 800);
+  }
+}
+window.addEventListener('load', handleUrlHash);
 
 /* ── NOTIFICATION ── */
 function openNotif(){document.getElementById('notif-modal').classList.add('show');}
