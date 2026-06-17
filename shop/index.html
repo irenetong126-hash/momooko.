@@ -171,6 +171,11 @@ window.loadAllOrders = async function() {
   try {
     const snap = await getDocs(collection(db,'momoko_orders'));
     ORDERS = snap.docs.map(d => ({ fbId: d.id, ...d.data(), date: d.data().createdAt?.toDate?.()?.toLocaleDateString('zh-TW')||'' }));
+    ORDERS.sort((a,b)=>{
+      const ta = a.createdAt?.toMillis?.() || 0;
+      const tb = b.createdAt?.toMillis?.() || 0;
+      return tb - ta;
+    });
     saveOrders(ORDERS);
     renderAdminOrders();
   } catch(e) { console.error(e); }
@@ -1151,6 +1156,12 @@ input[type=file]{display:none;}
         <div class="admin-sec-title">所有喊單紀錄</div>
         <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出全部到試算表</button>
       </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+          <option value="">全部分類</option>
+        </select>
+        <input class="finput" id="order-filter-member" placeholder="搜尋會員編號…" oninput="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+      </div>
       <div id="admin-orders-list"></div>
     </div>
 
@@ -1811,7 +1822,7 @@ function switchATab(el,id){
   document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.apanel').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');document.getElementById('apanel-'+id).classList.add('active');
-  if(id==='orders')renderAdminOrders();
+  if(id==='orders'){renderAdminOrders();buildOrderCatFilter();}
   if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
   if(id==='manual'){buildManualProdSelect();}
   if(id==='members'){}
@@ -2208,6 +2219,13 @@ function computeOrderStats(){
   }));
   return{users:users.size,purchased,unpurchased};
 }
+function buildOrderCatFilter(){
+  const sel = document.getElementById('order-filter-cat');
+  if(!sel) return;
+  const allCats = [{id:'',label:'全部分類'}, ...CATS];
+  sel.innerHTML = allCats.map(c=>`<option value="${c.id}">${c.id?c.icon+' ':''} ${c.label}</option>`).join('');
+}
+
 function renderAdminOrders(){
   const stats=computeOrderStats();
   document.getElementById('order-overview-stats').innerHTML=`
@@ -2215,16 +2233,30 @@ function renderAdminOrders(){
     <div class="astat"><div class="astat-num" style="color:var(--grn);">${stats.purchased}</div><div class="astat-label">已採買件數</div></div>
     <div class="astat"><div class="astat-num" style="color:var(--ora);">${stats.unpurchased}</div><div class="astat-label">未採買件數</div></div>`;
 
+  const filterCat = document.getElementById('order-filter-cat')?.value || '';
+  const filterMember = document.getElementById('order-filter-member')?.value.trim().toUpperCase() || '';
+
+  let orders = ORDERS;
+  if(filterMember) orders = orders.filter(o=>(o.memberId||'').includes(filterMember));
+  if(filterCat){
+    orders = orders.filter(o=>(o.items||[]).some(i=>{
+      const p = PRODS.find(x=>String(x.id)===String(i.prodId));
+      return p && (p.cat===filterCat || p.subcat===filterCat);
+    }));
+  }
+
   const el=document.getElementById('admin-orders-list');
-  document.getElementById('order-count').textContent=`共 ${ORDERS.length} 筆`;
-  if(!ORDERS.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>還沒有訂單</p></div>';return;}
-  el.innerHTML=ORDERS.map((o,oi)=>{
+  const countEl=document.getElementById('order-count');
+  if(countEl) countEl.textContent=`共 ${orders.length} 筆`;
+  if(!orders.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>沒有符合的訂單</p></div>';return;}
+  el.innerHTML=orders.map((o,oi)=>{
     const mx=orderMaxStep(o);
     const displayName = o.memberName || o.user || o.memberId || '未知';
     const displayId = o.memberId || o.id || '';
     const displayDate = o.date || '';
     const displayPhone = o.phone || '';
     const shortId = o.id || o.fbId?.slice(-6) || '';
+    const realOi = ORDERS.indexOf(o);
     return`<div class="aorder">
       <div class="aorder-hd">
         <div>
@@ -2237,22 +2269,22 @@ function renderAdminOrders(){
         const img=item.imgs&&item.imgs[0];
         return`<div class="aoi">
           <div class="aoi-img">${img?`<img src="${img}">`:`${item.emoji}`}</div>
-          <div class="aoi-name">${item.name}</div>
+          <div class="aoi-name">${item.name}${item.specs?` <span style="font-size:10px;color:var(--muted);">(${item.specs})</span>`:''}</div>
           <div class="aoi-qty">×${item.qty}</div>
           <div class="aoi-price">NT$${item.price.toLocaleString()}</div>
         </div>
         <div class="aoi-prog">
-          <select class="aoi-sel" id="sel-${oi}-${ii}">
+          <select class="aoi-sel" id="sel-${realOi}-${ii}">
             ${STATUS_LIST.map(s=>`<option value="${s.val}"${item.step===s.val?' selected':''}>${s.text}</option>`).join('')}
           </select>
-          <input class="aoi-note" id="note-${oi}-${ii}" placeholder="備註（顯示給客人）" value="${item.note||''}">
+          <input class="aoi-note" id="note-${realOi}-${ii}" placeholder="備註（顯示給客人）" value="${item.note||''}">
         </div>`;
       }).join('')}</div>
       <div class="aorder-ft">
         <span class="aorder-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span>
         <div style="display:flex;gap:6px;">
-          <button class="btn-save-prog" onclick="saveOrderProgFB(${oi})">儲存進度</button>
-          <button onclick="deleteOrderFB('${o.fbId}',${oi})" style="padding:6px 10px;background:#fef2f2;color:#ef4444;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid #fecaca;">🗑 刪除</button>
+          <button class="btn-save-prog" onclick="saveOrderProgFB(${realOi})">儲存進度</button>
+          <button onclick="deleteOrderFB('${o.fbId}',${realOi})" style="padding:6px 10px;background:#fef2f2;color:#ef4444;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid #fecaca;">🗑 刪除</button>
         </div>
       </div>
     </div>`;
