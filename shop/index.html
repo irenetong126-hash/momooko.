@@ -1,4 +1,4 @@
-\<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -366,6 +366,7 @@ window.loadProdsAndCats = async function() {
         return tb - ta;
       });
       saveP(PRODS); renderGrid();
+      if(window._onProdsLoaded) window._onProdsLoaded();
     }
     if (catsDoc.exists() && catsDoc.data().list?.length > 0) {
       CATS = catsDoc.data().list;
@@ -797,8 +798,8 @@ input[type=file]{display:none;}
 .pwd-cancel{width:100%;padding:10px;background:#f0f8fb;color:var(--muted);border-radius:10px;font-size:12px;font-weight:600;}
 
 /* TOAST */
-.toast{position:fixed;top:calc(var(--nav)+10px);left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;border-radius:99px;padding:9px 18px;font-size:12px;font-weight:600;z-index:900;white-space:nowrap;opacity:0;transition:opacity .3s;pointer-events:none;}
-.toast.show{opacity:1;}
+.toast{position:fixed;bottom:120px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--ink);color:#fff;border-radius:99px;padding:10px 20px;font-size:13px;font-weight:600;z-index:9999;white-space:nowrap;opacity:0;transition:opacity .25s, transform .25s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.18);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .empty{text-align:center;padding:36px 20px;color:var(--muted);}
 .empty-icon{font-size:40px;margin-bottom:8px;}
 .empty p{font-size:13px;}
@@ -1127,6 +1128,12 @@ input[type=file]{display:none;}
     <div class="apanel active" id="apanel-prods">
       <div class="admin-stats" id="admin-stats-prods"></div>
       <div class="admin-sec-hd"><div class="admin-sec-title">商品列表</div><button class="btn-add" onclick="openProdForm(null)">＋ 新增</button></div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input class="finput" id="prod-filter-kw" placeholder="🔍 搜尋商品名稱…" oninput="renderAList()" style="flex:1;margin-bottom:0;">
+        <select class="fsel" id="prod-filter-cat" onchange="renderAList()" style="flex:1;margin-bottom:0;">
+          <option value="">全部分類</option>
+        </select>
+      </div>
       <div id="admin-list"></div>
     </div>
 
@@ -1822,6 +1829,7 @@ function switchATab(el,id){
   document.querySelectorAll('.atab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.apanel').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');document.getElementById('apanel-'+id).classList.add('active');
+  if(id==='prods'){renderAStatsProds();renderAList();buildProdCatFilter();}
   if(id==='orders'){renderAdminOrders();buildOrderCatFilter();}
   if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
   if(id==='manual'){buildManualProdSelect();}
@@ -1830,7 +1838,7 @@ function switchATab(el,id){
 }
 function openAdmin(){
   document.getElementById('admin-overlay').style.display='block';
-  renderAStatsProds();renderAList();
+  renderAStatsProds();renderAList();buildProdCatFilter();
   if(window.loadAllOrders)loadAllOrders();
   if(window.loadProdsAndCats)loadProdsAndCats();
 }
@@ -1847,10 +1855,25 @@ function renderAStatsProds(){
     <div class="astat"><div class="astat-num">${ORDERS.length}</div><div class="astat-label">訂單總數</div></div>
     <div class="astat"><div class="astat-num">${CATS.length}</div><div class="astat-label">分類數</div></div>`;
 }
+function buildProdCatFilter(){
+  const sel = document.getElementById('prod-filter-cat');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">全部分類</option>' + CATS.map(c=>`<option value="${c.id}">${c.icon} ${c.label}</option>`).join('');
+}
 function renderAList(){
   const el=document.getElementById('admin-list');
-  if(!PRODS.length){el.innerHTML='<div class="empty"><div class="empty-icon">📦</div><p>還沒有商品，點上方「＋ 新增」開始！</p></div>';return;}
-  el.innerHTML=PRODS.map(p=>{
+  const kw = document.getElementById('prod-filter-kw')?.value.trim().toLowerCase()||'';
+  const filterCat = document.getElementById('prod-filter-cat')?.value||'';
+  // 依新增時間排序
+  let list = [...PRODS].sort((a,b)=>{
+    const ta = a.createdAt?.toMillis?.() || 0;
+    const tb = b.createdAt?.toMillis?.() || 0;
+    return tb - ta;
+  });
+  if(kw) list = list.filter(p=>p.name.toLowerCase().includes(kw)||p.store.toLowerCase().includes(kw));
+  if(filterCat) list = list.filter(p=>p.cat===filterCat||p.subcat===filterCat);
+  if(!list.length){el.innerHTML='<div class="empty"><div class="empty-icon">📦</div><p>沒有符合的商品</p></div>';return;}
+  el.innerHTML=list.map(p=>{
     const img0=getImg0(p);
     const catObj=CATS.find(c=>c.id===p.cat);
     return`<div class="aprod">
@@ -2416,29 +2439,42 @@ function closeGuide(){document.getElementById('guide-page').style.display='none'
 
 function copyProdLink(id){
   const url = `${location.origin}${location.pathname}#product-${id}`;
-  navigator.clipboard.writeText(url).then(()=>showToast('🔗 連結已複製！')).catch(()=>{
-    prompt('複製以下連結：', url);
-  });
+  try {
+    navigator.clipboard.writeText(url).then(()=>{
+      showToast('🔗 連結已複製！');
+    }).catch(()=>fallbackCopy(url));
+  } catch(e){ fallbackCopy(url); }
+}
+function fallbackCopy(url){
+  const ta = document.createElement('textarea');
+  ta.value = url;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast('🔗 連結已複製！');
 }
 
 function handleUrlHash(){
   const hash = location.hash;
   if(!hash.startsWith('#product-')) return;
   const id = hash.replace('#product-','');
-  // 等商品載入完成後再跳轉
-  const tryOpen = (attempts) => {
-    if(attempts <= 0) return;
-    const p = PRODS.find(x=>String(x.id)===String(id));
-    if(p){
-      goPage('shop');
-      setTimeout(()=>openDetail(id), 200);
-    } else {
-      setTimeout(()=>tryOpen(attempts-1), 500);
-    }
-  };
-  setTimeout(()=>tryOpen(10), 800);
+  goPage('shop');
+  openDetail(id);
 }
-window.addEventListener('load', handleUrlHash);
+
+// 在商品載入完成後也檢查一次 hash
+window._onProdsLoaded = function(){
+  const hash = location.hash;
+  if(hash.startsWith('#product-')){
+    const id = hash.replace('#product-','');
+    goPage('shop');
+    setTimeout(()=>openDetail(id), 100);
+  }
+}
+window.addEventListener('load', ()=>setTimeout(handleUrlHash, 300));
 
 /* ── NOTIFICATION ── */
 function openNotif(){document.getElementById('notif-modal').classList.add('show');}
