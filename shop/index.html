@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -2423,13 +2423,20 @@ function copyProdLink(id){
 
 function handleUrlHash(){
   const hash = location.hash;
-  if(hash.startsWith('#product-')){
-    const id = hash.replace('#product-','');
-    setTimeout(()=>{
+  if(!hash.startsWith('#product-')) return;
+  const id = hash.replace('#product-','');
+  // 等商品載入完成後再跳轉
+  const tryOpen = (attempts) => {
+    if(attempts <= 0) return;
+    const p = PRODS.find(x=>String(x.id)===String(id));
+    if(p){
       goPage('shop');
-      setTimeout(()=>openDetail(id), 500);
-    }, 800);
-  }
+      setTimeout(()=>openDetail(id), 200);
+    } else {
+      setTimeout(()=>tryOpen(attempts-1), 500);
+    }
+  };
+  setTimeout(()=>tryOpen(10), 800);
 }
 window.addEventListener('load', handleUrlHash);
 
