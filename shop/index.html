@@ -1167,7 +1167,19 @@ input[type=file]{display:none;}
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
           <option value="">全部分類</option>
         </select>
-        <input class="finput" id="order-filter-member" placeholder="搜尋會員編號…" oninput="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+        <select class="fsel" id="order-filter-status" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+          <option value="">全部狀態</option>
+          <option value="pending">未採購</option>
+          <option value="done">已採購</option>
+        </select>
+        <select class="fsel" id="order-sort" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+          <option value="newest">最新優先</option>
+          <option value="oldest">最舊優先</option>
+          <option value="member">會員編號</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input class="finput" id="order-filter-member" placeholder="🔍 搜尋會員編號或商品名稱…" oninput="renderAdminOrders()" style="flex:1;margin-bottom:0;">
       </div>
       <div id="admin-orders-list"></div>
     </div>
@@ -1868,7 +1880,9 @@ function renderAList(){
   let list = [...PRODS].sort((a,b)=>{
     const ta = a.createdAt?.toMillis?.() || 0;
     const tb = b.createdAt?.toMillis?.() || 0;
-    return tb - ta;
+    if(ta !== tb) return tb - ta;
+    // 沒有 createdAt 的舊商品用 id 排序
+    return String(b.id).localeCompare(String(a.id));
   });
   if(kw) list = list.filter(p=>p.name.toLowerCase().includes(kw)||p.store.toLowerCase().includes(kw));
   if(filterCat) list = list.filter(p=>p.cat===filterCat||p.subcat===filterCat);
@@ -2257,16 +2271,31 @@ function renderAdminOrders(){
     <div class="astat"><div class="astat-num" style="color:var(--ora);">${stats.unpurchased}</div><div class="astat-label">未採買件數</div></div>`;
 
   const filterCat = document.getElementById('order-filter-cat')?.value || '';
-  const filterMember = document.getElementById('order-filter-member')?.value.trim().toUpperCase() || '';
+  const filterMember = document.getElementById('order-filter-member')?.value.trim().toLowerCase() || '';
+  const filterStatus = document.getElementById('order-filter-status')?.value || '';
 
   let orders = ORDERS;
-  if(filterMember) orders = orders.filter(o=>(o.memberId||'').includes(filterMember));
+  if(filterMember) orders = orders.filter(o=>
+    (o.memberId||'').toLowerCase().includes(filterMember) ||
+    (o.memberName||'').toLowerCase().includes(filterMember) ||
+    (o.items||[]).some(i=>(i.name||'').toLowerCase().includes(filterMember))
+  );
   if(filterCat){
     orders = orders.filter(o=>(o.items||[]).some(i=>{
       const p = PRODS.find(x=>String(x.id)===String(i.prodId));
       return p && (p.cat===filterCat || p.subcat===filterCat);
     }));
   }
+  if(filterStatus==='pending'){
+    orders = orders.filter(o=>(o.items||[]).some(i=>!i.step||i.step===0));
+  } else if(filterStatus==='done'){
+    orders = orders.filter(o=>(o.items||[]).every(i=>i.step&&i.step>0));
+  }
+
+  const sort = document.getElementById('order-sort')?.value || 'newest';
+  if(sort==='newest') orders.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()||0));
+  else if(sort==='oldest') orders.sort((a,b)=>(a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0));
+  else if(sort==='member') orders.sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')));
 
   const el=document.getElementById('admin-orders-list');
   const countEl=document.getElementById('order-count');
@@ -2284,7 +2313,7 @@ function renderAdminOrders(){
       <div class="aorder-hd">
         <div>
           <div class="aorder-user">👤 ${displayName}</div>
-          <div class="aorder-id">${shortId}｜會員：${displayId}｜${displayDate}｜${displayPhone}</div>
+          <div class="aorder-id">${shortId}｜${displayId} ${displayName}｜${o.lineNick||''}｜${displayDate}｜${displayPhone}</div>
         </div>
         <span class="ostatus ${stCls(mx)}" style="font-size:10px;padding:3px 8px;flex-shrink:0;">${stText(mx)}</span>
       </div>
