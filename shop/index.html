@@ -31,7 +31,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 window._auth = auth; window._db = db;
-window._fbFns = { signInWithEmailAndPassword, signOut, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc };
+window._fbFns = { signInWithEmailAndPassword, signOut, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc };
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
@@ -2054,6 +2054,18 @@ async function exportAllOrdersToSheets(){
   showToast(`✅ 已匯出 ${success} 筆訂單到試算表！`);
 }
 
+async function togglePayment(fbId, oi, value){
+  const o = ORDERS[oi];
+  if(!o) return;
+  try {
+    const { doc, updateDoc } = window._fbFns;
+    await updateDoc(doc(window._db,'momoko_orders',fbId), { payStatus: value });
+    ORDERS[oi].payStatus = value;
+    showToast(`已更新：${value}`);
+    renderAdminOrders();
+  } catch(e){ showToast('❌ 更新失敗'); console.error(e); }
+}
+
 function clearManualOrder(){
   manualItems = [];
   manualSpecs = {};
@@ -2333,7 +2345,14 @@ function renderAdminOrders(){
         </div>`;
       }).join('')}</div>
       <div class="aorder-ft">
-        <span class="aorder-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="aorder-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span>
+          <select onchange="togglePayment('${o.fbId}',${realOi},this.value)" style="padding:4px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1.5px solid ${o.payStatus==='已付款'?'#22c55e':o.payStatus==='未付款'?'#f59e0b':'#d1d5db'};background:${o.payStatus==='已付款'?'#f0fdf4':o.payStatus==='未付款'?'#fffbeb':'#f9fafb'};color:${o.payStatus==='已付款'?'#16a34a':o.payStatus==='未付款'?'#d97706':'#6b7280'};">
+            <option value="未送付款單" ${!o.payStatus||o.payStatus==='未送付款單'?'selected':''}>📨 未送付款單</option>
+            <option value="未付款" ${o.payStatus==='未付款'?'selected':''}>⏳ 未付款</option>
+            <option value="已付款" ${o.payStatus==='已付款'?'selected':''}>✅ 已付款</option>
+          </select>
+        </div>
         <div style="display:flex;gap:6px;">
           <button class="btn-save-prog" onclick="saveOrderProgFB(${realOi})">儲存進度</button>
           <button onclick="deleteOrderFB('${o.fbId}',${realOi})" style="padding:6px 10px;background:#fef2f2;color:#ef4444;border-radius:6px;font-size:11px;font-weight:700;border:1.5px solid #fecaca;">🗑 刪除</button>
