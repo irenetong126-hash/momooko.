@@ -141,7 +141,8 @@ window.submitOrderFB = async function() {
           memberId: m.memberId,
           lineNick,
           items: items.map(i=>({...i, cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0})),
-          total: tot
+          total: tot,
+          fbId: docRef.id
         })
       });
       console.log('✅ Sheets 同步成功');
@@ -217,13 +218,20 @@ window.delProdFB = async function(fbId) {
 // 刪除訂單
 window.deleteOrderFB = async function(fbId, oi) {
   if(!fbId){showToast('❌ 找不到訂單ID');return;}
-  if(!confirm('確定刪除這筆訂單？此操作無法復原')){return;}
+  if(!confirm('確定刪除這筆訂單？此操作無法復原（含試算表紀錄）')){return;}
   try {
     await deleteDoc(doc(db,'momoko_orders',fbId));
     ORDERS.splice(oi,1);
     saveOrders(ORDERS);
     renderAdminOrders();
     showToast('🗑 訂單已刪除');
+    // 同步刪除試算表紀錄
+    fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec', {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'delete', fbId })
+    }).catch(e=>console.error('Sheets delete sync error:',e));
   } catch(e) { showToast('❌ 刪除失敗：' + e.message); console.error(e); }
 };
 
@@ -1121,6 +1129,7 @@ input[type=file]{display:none;}
       <div class="atab" onclick="switchATab(this,'orders')">📋 訂單</div>
       <div class="atab" onclick="switchATab(this,'manual')">✏️ 代客</div>
       <div class="atab" onclick="switchATab(this,'members')">👤 會員</div>
+      <div class="atab" onclick="switchATab(this,'bill')">🧾 帳單</div>
       <div class="atab" onclick="switchATab(this,'trip')">✈️ 行程</div>
     </div>
 
@@ -1226,6 +1235,25 @@ input[type=file]{display:none;}
       <button class="btn-pri" onclick="submitManualOrder()">💾 送出訂單</button>
       <div style="height:8px;"></div>
       <button class="btn-ghost" onclick="clearManualOrder()">清除</button>
+    </div>
+
+    <!-- 帳單 -->
+    <div class="apanel" id="apanel-bill">
+      <div class="admin-sec-title" style="margin-bottom:12px;">🧾 產生會員帳單</div>
+      <label class="flabel">選擇會員</label>
+      <select class="fsel" id="bill-member-sel" onchange="previewBill()">
+        <option value="">-- 選擇會員 --</option>
+      </select>
+      <label class="flabel" style="margin-top:10px;">商品狀態篩選</label>
+      <select class="fsel" id="bill-status-sel" onchange="previewBill()">
+        <option value="all">全部商品</option>
+        <option value="purchased">僅已採購商品</option>
+      </select>
+      <label class="flabel" style="margin-top:10px;">活動折扣（NT$，選填）</label>
+      <input class="finput" id="bill-discount" type="number" placeholder="例：50" oninput="previewBill()">
+      <label class="flabel" style="margin-top:10px;">運費（NT$，選填）</label>
+      <input class="finput" id="bill-shipping" type="number" placeholder="例：38" oninput="previewBill()">
+      <div id="bill-preview" style="margin-top:12px;"></div>
     </div>
 
     <!-- 行程 & 進度 -->
@@ -1846,6 +1874,7 @@ function switchATab(el,id){
   if(id==='cats'){renderAdminCats();rebuildSubCatSelect();}
   if(id==='manual'){buildManualProdSelect();}
   if(id==='members'){}
+  if(id==='bill'){buildBillMemberSel();previewBill();}
   if(id==='trip'&&window.loadTrip)loadTrip();
 }
 function openAdmin(){
@@ -2111,7 +2140,8 @@ window.submitManualOrder = async function(){
         memberId,
         lineNick: '',
         items: manualItems.map(i=>({...i, cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0})),
-        total: tot
+        total: tot,
+        fbId: ref.id
       })
     }).catch(e=>console.error('Sheets sync error:',e));
     clearManualOrder();
@@ -2268,6 +2298,110 @@ function computeOrderStats(){
   }));
   return{users:users.size,purchased,unpurchased};
 }
+function buildBillMemberSel(){
+  const sel = document.getElementById('bill-member-sel');
+  if(!sel) return;
+  // 從訂單裡取得所有會員
+  const members = [...new Map(ORDERS.map(o=>[o.memberId, {id:o.memberId, name:o.memberName||o.memberId}])).values()];
+  members.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  sel.innerHTML = '<option value="">-- 選擇會員 --</option>' + members.map(m=>`<option value="${m.id}">${m.id}　${m.name}</option>`).join('');
+}
+
+function previewBill(){
+  const memberId = document.getElementById('bill-member-sel').value;
+  const statusFilter = document.getElementById('bill-status-sel').value;
+  const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
+  const el = document.getElementById('bill-preview');
+  if(!memberId){ el.innerHTML=''; return; }
+
+  const orders = ORDERS.filter(o=>o.memberId===memberId);
+  if(!orders.length){ el.innerHTML='<p style="color:var(--muted);font-size:13px;">此會員沒有訂單</p>'; return; }
+
+  const memberName = orders[0].memberName || memberId;
+  let allItems = [];
+  orders.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      if(statusFilter==='purchased' && (!item.step||item.step===0)) return;
+      allItems.push({...item, orderId: o.id||o.fbId?.slice(-6)||''});
+    });
+  });
+
+  const subtotal = allItems.reduce((s,i)=>s+i.price,0);
+  const total = subtotal - discount + shipping;
+
+  el.innerHTML = `
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;">
+      <div style="background:var(--pri);color:#fff;padding:12px 16px;">
+        <div style="font-size:15px;font-weight:800;">ももコ・もも購 採購明細</div>
+        <div style="font-size:11px;opacity:.85;margin-top:2px;">${new Date().toLocaleDateString('zh-TW')}</div>
+      </div>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+        <div style="font-size:13px;"><span style="color:var(--muted);">會員編號</span> <strong>${memberId}</strong></div>
+        <div style="font-size:13px;margin-top:2px;"><span style="color:var(--muted);">姓名</span> <strong>${memberName}</strong></div>
+      </div>
+      <div style="padding:12px 16px;">
+        ${allItems.length===0?'<p style="color:var(--muted);font-size:12px;">沒有符合條件的商品</p>':allItems.map(item=>`
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;">
+            <div>
+              <div style="font-size:13px;font-weight:600;">${item.name}</div>
+              ${item.specs?`<div style="font-size:11px;color:var(--muted);">${item.specs}</div>`:''}
+              <div style="font-size:11px;color:var(--muted);">×${item.qty}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;">NT$${item.price.toLocaleString()}</div>
+          </div>`).join('')}
+        <div style="margin-top:10px;padding-top:8px;border-top:1.5px solid var(--border);">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>商品小計</span><span>NT$${subtotal.toLocaleString()}</span></div>
+          ${discount?`<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-bottom:4px;"><span>活動折扣</span><span>－NT$${discount.toLocaleString()}</span></div>`:''}
+          ${shipping?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>運費</span><span>＋NT$${shipping.toLocaleString()}</span></div>`:''}
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--pri);margin-top:6px;"><span>總計</span><span>NT$${total.toLocaleString()}</span></div>
+        </div>
+      </div>
+    </div>
+    <button onclick="copyBill()" class="btn-pri" style="width:100%;margin-bottom:8px;">📋 複製帳單文字</button>
+  `;
+  document.getElementById('bill-preview').dataset.memberId = memberId;
+  document.getElementById('bill-preview').dataset.memberName = memberName;
+  document.getElementById('bill-preview').dataset.discount = discount;
+  document.getElementById('bill-preview').dataset.shipping = shipping;
+}
+
+function copyBill(){
+  const el = document.getElementById('bill-preview');
+  const memberId = el.dataset.memberId;
+  const memberName = el.dataset.memberName;
+  const discount = parseInt(el.dataset.discount)||0;
+  const shipping = parseInt(el.dataset.shipping)||0;
+  const statusFilter = document.getElementById('bill-status-sel').value;
+  const orders = ORDERS.filter(o=>o.memberId===memberId);
+  let allItems = [];
+  orders.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      if(statusFilter==='purchased' && (!item.step||item.step===0)) return;
+      allItems.push(item);
+    });
+  });
+  const subtotal = allItems.reduce((s,i)=>s+i.price,0);
+  const total = subtotal - discount + shipping;
+  const date = new Date().toLocaleDateString('zh-TW');
+  let text = `🧾 ももコ・もも購 採購明細\n${date}\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+  text += `👤 ${memberId}　${memberName}\n`;
+  text += `━━━━━━━━━━━━━━\n`;
+  allItems.forEach(item=>{
+    text += `・${item.name}${item.specs?' ('+item.specs+')':''} ×${item.qty}　NT$${item.price.toLocaleString()}\n`;
+  });
+  text += `━━━━━━━━━━━━━━\n`;
+  text += `商品小計：NT$${subtotal.toLocaleString()}\n`;
+  if(discount) text += `活動折扣：－NT$${discount.toLocaleString()}\n`;
+  if(shipping) text += `運費：＋NT$${shipping.toLocaleString()}\n`;
+  text += `💰 總計：NT$${total.toLocaleString()}\n`;
+  text += `\n請於 48 小時內完成匯款，謝謝！🙏`;
+  try {
+    navigator.clipboard.writeText(text).then(()=>showToast('📋 帳單已複製！')).catch(()=>fallbackCopy(text));
+  } catch(e){ fallbackCopy(text); }
+}
+
 function buildOrderCatFilter(){
   const sel = document.getElementById('order-filter-cat');
   if(!sel) return;
