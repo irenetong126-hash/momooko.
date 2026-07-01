@@ -204,6 +204,18 @@ window.saveOrderProgFB = async function(oi) {
     });
     saveOrders(ORDERS); renderMyProgress(); renderMyOrders(); renderAdminOrders();
     showToast('✅ 進度已更新，總計已調整');
+    // 同步試算表（售完商品金額歸零）
+    const updates = ORDERS[oi].items.map(item=>{
+      const isSoldOut = item.step===2;
+      const cost = isSoldOut ? 0 : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty;
+      const price = isSoldOut ? 0 : item.price;
+      return { name: item.name, specs: item.specs||'', price, cost, profit: price-cost };
+    });
+    fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec',{
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'updateOrder', fbId: o.fbId, updates })
+    }).catch(e=>console.error('Sheets update error:',e));
   } catch(e) { showToast('❌ 更新失敗'); console.error(e); }
 };
 
@@ -744,8 +756,9 @@ input[type=file]{display:none;}
 .admin-close{color:rgba(255,255,255,.75);font-size:13px;cursor:pointer;padding:8px;}
 .admin-body{padding:14px;}
 /* FIX: 3 tabs now (整體進度 merged into 訂單) */
-.admin-tabs{display:flex;background:#e0f0f5;border-radius:10px;padding:3px;margin-bottom:14px;}
-.atab{flex:1;text-align:center;padding:8px;border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s;}
+.admin-tabs{display:flex;background:#e0f0f5;border-radius:10px;padding:3px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap;}
+.admin-tabs::-webkit-scrollbar{display:none;}
+.atab{flex:0 0 auto;text-align:center;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;}
 .atab.active{background:#fff;color:var(--pri);}
 .apanel{display:none;}
 .apanel.active{display:block;}
@@ -1178,7 +1191,8 @@ input[type=file]{display:none;}
       <div class="admin-stats" id="order-overview-stats"></div>
       <div class="admin-sec-hd">
         <div class="admin-sec-title">所有喊單紀錄</div>
-        <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出全部到試算表</button>
+        <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出全部</button>
+        <button onclick="clearAndExportToSheets()" style="font-size:11px;padding:5px 10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;color:#ea580c;font-weight:700;">🔄 清空重匯</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -2066,6 +2080,33 @@ function checkMemberId(val){
       }
     }catch(e){ el.textContent=''; }
   }, 600);
+}
+
+async function clearAndExportToSheets(){
+  if(!confirm('確定清空試算表並重新匯出所有訂單？')) return;
+  showToast('匯出中…');
+  const allItems = [];
+  ORDERS.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      const isSoldOut = item.step===2;
+      const cost = isSoldOut ? 0 : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty;
+      const price = isSoldOut ? 0 : item.price;
+      allItems.push({
+        date: o.date||'', memberId: o.memberId||'', memberName: o.memberName||'',
+        name: item.name, specs: item.specs||'', qty: item.qty,
+        price, cost, profit: price-cost,
+        lineNick: o.lineNick||'', fbId: o.fbId||''
+      });
+    });
+  });
+  try{
+    await fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec',{
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'clearAndExport', items: allItems })
+    });
+    showToast(`✅ 已清空並重新匯出 ${allItems.length} 筆！`);
+  }catch(e){ showToast('❌ 匯出失敗'); console.error(e); }
 }
 
 async function exportAllOrdersToSheets(){
