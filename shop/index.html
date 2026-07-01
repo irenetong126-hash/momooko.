@@ -192,10 +192,18 @@ window.saveOrderProgFB = async function(oi) {
     if(sel) ORDERS[oi].items[ii].step=parseInt(sel.value);
     if(note) ORDERS[oi].items[ii].note=note.value;
   });
+  // 重新計算總計（扣除店舖售完的商品）
+  const newTotal = ORDERS[oi].items
+    .filter(i=>i.step!==2)
+    .reduce((s,i)=>s+i.price, 0);
+  ORDERS[oi].total = newTotal;
   try {
-    await updateDoc(doc(db,'momoko_orders',o.fbId), { items: ORDERS[oi].items });
+    await updateDoc(doc(db,'momoko_orders',o.fbId), {
+      items: ORDERS[oi].items,
+      total: newTotal
+    });
     saveOrders(ORDERS); renderMyProgress(); renderMyOrders(); renderAdminOrders();
-    showToast('✅ 進度已更新');
+    showToast('✅ 進度已更新，總計已調整');
   } catch(e) { showToast('❌ 更新失敗'); console.error(e); }
 };
 
@@ -1180,6 +1188,7 @@ input[type=file]{display:none;}
           <option value="">全部狀態</option>
           <option value="pending">未採購</option>
           <option value="done">已採購</option>
+          <option value="soldout">店舖售完</option>
         </select>
         <select class="fsel" id="order-sort" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
           <option value="newest">最新優先</option>
@@ -1249,10 +1258,15 @@ input[type=file]{display:none;}
         <option value="all">全部商品</option>
         <option value="purchased">僅已採購商品</option>
       </select>
+      <label class="flabel" style="margin-top:10px;">自動不勾選</label>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="bill-auto-soldout" checked onchange="previewBill()"> 店舖售完</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="bill-auto-paid" onchange="previewBill()"> 已付款商品</label>
+      </div>
       <label class="flabel" style="margin-top:10px;">活動折扣（NT$，選填）</label>
-      <input class="finput" id="bill-discount" type="number" placeholder="例：50" oninput="previewBill()">
+      <input class="finput" id="bill-discount" type="number" placeholder="例：50" oninput="renderBillTotal()">
       <label class="flabel" style="margin-top:10px;">運費（NT$，選填）</label>
-      <input class="finput" id="bill-shipping" type="number" placeholder="例：38" oninput="previewBill()">
+      <input class="finput" id="bill-shipping" type="number" placeholder="例：38" oninput="renderBillTotal()">
       <div id="bill-preview" style="margin-top:12px;"></div>
     </div>
 
@@ -2298,97 +2312,124 @@ function computeOrderStats(){
   }));
   return{users:users.size,purchased,unpurchased};
 }
-function buildBillMemberSel(){
+async function buildBillMemberSel(){
   const sel = document.getElementById('bill-member-sel');
   if(!sel) return;
-  // 從訂單裡取得所有會員
-  const members = [...new Map(ORDERS.map(o=>[o.memberId, {id:o.memberId, name:o.memberName||o.memberId}])).values()];
+  const members = [...new Map(ORDERS.map(o=>[o.memberId?.toUpperCase(), {id:o.memberId?.toUpperCase(), name:o.memberName||''}])).values()];
+  // 從 members 集合補齊名字
+  for(const m of members){
+    if(!m.name && m.id){
+      try{
+        const snap = await window._fbFns.getDoc(window._fbFns.doc(window._db,'members',m.id));
+        if(snap.exists()) m.name = snap.data().name||'';
+      }catch(e){}
+    }
+  }
   members.sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-  sel.innerHTML = '<option value="">-- 選擇會員 --</option>' + members.map(m=>`<option value="${m.id}">${m.id}　${m.name}</option>`).join('');
+  sel.innerHTML = '<option value="">-- 選擇會員 --</option>' + members.map(m=>`<option value="${m.id}">${m.id}　${m.name||'（未知）'}</option>`).join('');
 }
 
+let _billAllItems = [];
 function previewBill(){
   const memberId = document.getElementById('bill-member-sel').value;
   const statusFilter = document.getElementById('bill-status-sel').value;
-  const discount = parseInt(document.getElementById('bill-discount').value)||0;
-  const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
   const el = document.getElementById('bill-preview');
-  if(!memberId){ el.innerHTML=''; return; }
+  if(!memberId){ el.innerHTML=''; _billAllItems=[]; return; }
 
   const orders = ORDERS.filter(o=>o.memberId===memberId);
-  if(!orders.length){ el.innerHTML='<p style="color:var(--muted);font-size:13px;">此會員沒有訂單</p>'; return; }
+  if(!orders.length){ el.innerHTML='<p style="color:var(--muted);font-size:13px;">此會員沒有訂單</p>'; _billAllItems=[]; return; }
 
   const memberName = orders[0].memberName || memberId;
-  let allItems = [];
+  _billAllItems = [];
   orders.forEach(o=>{
-    (o.items||[]).forEach(item=>{
+    (o.items||[]).forEach((item,ii)=>{
       if(statusFilter==='purchased' && (!item.step||item.step===0)) return;
-      allItems.push({...item, orderId: o.id||o.fbId?.slice(-6)||''});
+      _billAllItems.push({...item, orderId: o.id||o.fbId?.slice(-6)||'', _key: `${o.fbId}-${ii}`, orderPaid: o.payStatus==='已付款'});
     });
   });
 
-  const subtotal = allItems.reduce((s,i)=>s+i.price,0);
-  const total = subtotal - discount + shipping;
+  el.dataset.memberId = memberId;
+  el.dataset.memberName = memberName;
 
   el.innerHTML = `
     <div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:12px;">
-      <div style="background:var(--pri);color:#fff;padding:12px 16px;">
-        <div style="font-size:15px;font-weight:800;">ももコ・もも購 採購明細</div>
-        <div style="font-size:11px;opacity:.85;margin-top:2px;">${new Date().toLocaleDateString('zh-TW')}</div>
-      </div>
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
-        <div style="font-size:13px;"><span style="color:var(--muted);">會員編號</span> <strong>${memberId}</strong></div>
-        <div style="font-size:13px;margin-top:2px;"><span style="color:var(--muted);">姓名</span> <strong>${memberName}</strong></div>
-      </div>
-      <div style="padding:12px 16px;">
-        ${allItems.length===0?'<p style="color:var(--muted);font-size:12px;">沒有符合條件的商品</p>':allItems.map(item=>`
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;">
-            <div>
-              <div style="font-size:13px;font-weight:600;">${item.name}</div>
-              ${item.specs?`<div style="font-size:11px;color:var(--muted);">${item.specs}</div>`:''}
-              <div style="font-size:11px;color:var(--muted);">×${item.qty}</div>
-            </div>
-            <div style="font-size:13px;font-weight:700;">NT$${item.price.toLocaleString()}</div>
-          </div>`).join('')}
-        <div style="margin-top:10px;padding-top:8px;border-top:1.5px solid var(--border);">
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>商品小計</span><span>NT$${subtotal.toLocaleString()}</span></div>
-          ${discount?`<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-bottom:4px;"><span>活動折扣</span><span>－NT$${discount.toLocaleString()}</span></div>`:''}
-          ${shipping?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>運費</span><span>＋NT$${shipping.toLocaleString()}</span></div>`:''}
-          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--pri);margin-top:6px;"><span>總計</span><span>NT$${total.toLocaleString()}</span></div>
+      <div style="background:var(--pri);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:15px;font-weight:800;">勾選要列入帳單的商品</div>
+          <div style="font-size:11px;opacity:.85;margin-top:2px;">${memberId}　${memberName}</div>
         </div>
+        <button onclick="toggleAllBillItems()" style="font-size:11px;background:rgba(255,255,255,.2);color:#fff;padding:4px 10px;border-radius:6px;font-weight:700;">全選/取消</button>
       </div>
+      <div style="padding:8px 16px;">
+        ${_billAllItems.length===0?'<p style="color:var(--muted);font-size:12px;padding:12px 0;">沒有符合條件的商品</p>':_billAllItems.map((item,i)=>{
+          const isSoldOut = item.step===2;
+          const autoUncheckSoldOut = document.getElementById('bill-auto-soldout')?.checked;
+          const autoUncheckPaid = document.getElementById('bill-auto-paid')?.checked;
+          const isPaid = item.orderPaid;
+          const defaultChecked = !(isSoldOut && autoUncheckSoldOut) && !(isPaid && autoUncheckPaid);
+          return`
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;${(isSoldOut||isPaid)?'opacity:0.5;':''}">
+            <input type="checkbox" class="bill-item-chk" data-idx="${i}" ${defaultChecked?'checked':''} onchange="renderBillTotal()" style="width:18px;height:18px;flex-shrink:0;">
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:600;">${item.name}
+                ${isSoldOut?'<span style="font-size:10px;background:#fee2e2;color:#ef4444;padding:1px 6px;border-radius:99px;font-weight:700;margin-left:4px;">店舖售完</span>':''}
+                ${isPaid?'<span style="font-size:10px;background:#dcfce7;color:#16a34a;padding:1px 6px;border-radius:99px;font-weight:700;margin-left:4px;">已付款</span>':''}
+              </div>
+              ${item.specs?`<div style="font-size:11px;color:var(--muted);">${item.specs}</div>`:''}
+              <div style="font-size:11px;color:var(--muted);">×${item.qty}｜訂單 ${item.orderId}</div>
+            </div>
+            <div style="font-size:13px;font-weight:700;${(isSoldOut||isPaid)?'text-decoration:line-through;color:var(--muted);':''}">NT$${item.price.toLocaleString()}</div>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>
+    <div id="bill-total-box"></div>
+  `;
+  renderBillTotal();
+}
+
+function toggleAllBillItems(){
+  const chks = document.querySelectorAll('.bill-item-chk');
+  const allChecked = [...chks].every(c=>c.checked);
+  chks.forEach(c=>c.checked=!allChecked);
+  renderBillTotal();
+}
+
+function renderBillTotal(){
+  const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
+  const chks = document.querySelectorAll('.bill-item-chk');
+  const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
+  const subtotal = selectedItems.reduce((s,i)=>s+i.price,0);
+  const total = subtotal - discount + shipping;
+  document.getElementById('bill-total-box').innerHTML = `
+    <div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>商品小計（已選 ${selectedItems.length} 項）</span><span>NT$${subtotal.toLocaleString()}</span></div>
+      ${discount?`<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-bottom:4px;"><span>活動折扣</span><span>－NT$${discount.toLocaleString()}</span></div>`:''}
+      ${shipping?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>運費</span><span>＋NT$${shipping.toLocaleString()}</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--pri);margin-top:6px;"><span>總計</span><span>NT$${total.toLocaleString()}</span></div>
     </div>
     <button onclick="copyBill()" class="btn-pri" style="width:100%;margin-bottom:8px;">📋 複製帳單文字</button>
   `;
-  document.getElementById('bill-preview').dataset.memberId = memberId;
-  document.getElementById('bill-preview').dataset.memberName = memberName;
-  document.getElementById('bill-preview').dataset.discount = discount;
-  document.getElementById('bill-preview').dataset.shipping = shipping;
 }
 
 function copyBill(){
   const el = document.getElementById('bill-preview');
   const memberId = el.dataset.memberId;
   const memberName = el.dataset.memberName;
-  const discount = parseInt(el.dataset.discount)||0;
-  const shipping = parseInt(el.dataset.shipping)||0;
-  const statusFilter = document.getElementById('bill-status-sel').value;
-  const orders = ORDERS.filter(o=>o.memberId===memberId);
-  let allItems = [];
-  orders.forEach(o=>{
-    (o.items||[]).forEach(item=>{
-      if(statusFilter==='purchased' && (!item.step||item.step===0)) return;
-      allItems.push(item);
-    });
-  });
-  const subtotal = allItems.reduce((s,i)=>s+i.price,0);
+  const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
+  const chks = document.querySelectorAll('.bill-item-chk');
+  const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
+  if(!selectedItems.length){ showToast('⚠ 請至少勾選一項商品'); return; }
+  const subtotal = selectedItems.reduce((s,i)=>s+i.price,0);
   const total = subtotal - discount + shipping;
   const date = new Date().toLocaleDateString('zh-TW');
   let text = `🧾 ももコ・もも購 採購明細\n${date}\n`;
   text += `━━━━━━━━━━━━━━\n`;
   text += `👤 ${memberId}　${memberName}\n`;
   text += `━━━━━━━━━━━━━━\n`;
-  allItems.forEach(item=>{
+  selectedItems.forEach(item=>{
     text += `・${item.name}${item.specs?' ('+item.specs+')':''} ×${item.qty}　NT$${item.price.toLocaleString()}\n`;
   });
   text += `━━━━━━━━━━━━━━\n`;
@@ -2436,6 +2477,8 @@ function renderAdminOrders(){
     orders = orders.filter(o=>(o.items||[]).some(i=>!i.step||i.step===0));
   } else if(filterStatus==='done'){
     orders = orders.filter(o=>(o.items||[]).every(i=>i.step&&i.step>0));
+  } else if(filterStatus==='soldout'){
+    orders = orders.filter(o=>(o.items||[]).some(i=>i.step===2));
   }
 
   const sort = document.getElementById('order-sort')?.value || 'newest';
