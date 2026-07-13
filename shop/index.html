@@ -3234,7 +3234,7 @@ async function markAllShipped(memberId, archiveName){
   for(const o of memberOrders){
     const updatedItems = (o.items||[]).map(item=>({
       ...item,
-      step: item.step===2 ? 2 : 3  // 售完(2)不動，其他改為已寄出(3)
+      step: item.step===2 ? 2 : 4  // 售完(2)不動，其他改為已寄出(4)
     }));
     try{
       await updateDoc(doc(window._db,'momoko_orders',o.fbId),{ items: updatedItems });
