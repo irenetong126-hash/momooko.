@@ -326,7 +326,121 @@ window.createMember = async function(){
   }
 };
 
-// 儲存分類
+// 未來預計行程
+window.editFutureTrip = async function(id){
+  try {
+    const { doc, getDoc } = window._fbFns;
+    const snap = await getDoc(doc(window._db,'momoko_settings','future_trips'));
+    const trip = (snap.data()?.list||[]).find(t=>t.id===id);
+    if(!trip) return;
+    document.getElementById('ft-title').value = trip.title;
+    document.getElementById('ft-date').value = trip.date;
+    document.getElementById('ft-loc').value = trip.loc||'';
+    // 改按鈕為更新模式
+    const btn = document.querySelector('[onclick="addFutureTrip()"]');
+    if(btn){
+      btn.textContent = '💾 更新行程';
+      btn.setAttribute('onclick', `updateFutureTrip(${id})`);
+    }
+    showToast('已載入，修改後按更新');
+  } catch(e){ showToast('❌ 載入失敗'); }
+};
+
+window.updateFutureTrip = async function(id){
+  const title = document.getElementById('ft-title').value.trim();
+  const date = document.getElementById('ft-date').value.trim();
+  const loc = document.getElementById('ft-loc').value.trim();
+  if(!title||!date){ showToast('⚠ 請填寫行程名稱和日期'); return; }
+  try {
+    const { doc, getDoc, setDoc } = window._fbFns;
+    const ref = doc(window._db,'momoko_settings','future_trips');
+    const snap = await getDoc(ref);
+    const trips = (snap.data()?.list||[]).map(t=>t.id===id?{...t,title,date,loc}:t);
+    await setDoc(ref, { list: trips });
+    document.getElementById('ft-title').value='';
+    document.getElementById('ft-date').value='';
+    document.getElementById('ft-loc').value='';
+    // 改回新增模式
+    const btn = document.querySelector(`[onclick="updateFutureTrip(${id})"]`);
+    if(btn){ btn.textContent='＋ 新增預計行程'; btn.setAttribute('onclick','addFutureTrip()'); }
+    showToast('✅ 已更新行程');
+    loadFutureTrips();
+  } catch(e){ showToast('❌ 更新失敗'); }
+};
+
+window.addFutureTrip = async function(){
+  const title = document.getElementById('ft-title').value.trim();
+  const date = document.getElementById('ft-date').value.trim();
+  const loc = document.getElementById('ft-loc').value.trim();
+  if(!title||!date){ showToast('⚠ 請填寫行程名稱和日期'); return; }
+  try {
+    const { doc, getDoc, setDoc } = window._fbFns;
+    const ref = doc(window._db,'momoko_settings','future_trips');
+    const snap = await getDoc(ref);
+    const trips = snap.exists() ? (snap.data().list||[]) : [];
+    trips.push({ title, date, loc, id: Date.now() });
+    await setDoc(ref, { list: trips });
+    document.getElementById('ft-title').value='';
+    document.getElementById('ft-date').value='';
+    document.getElementById('ft-loc').value='';
+    showToast('✅ 已新增預計行程');
+    loadFutureTrips();
+  } catch(e){ showToast('❌ 新增失敗'); console.error(e); }
+};
+
+window.deleteFutureTrip = async function(id){
+  try {
+    const { doc, getDoc, setDoc } = window._fbFns;
+    const ref = doc(window._db,'momoko_settings','future_trips');
+    const snap = await getDoc(ref);
+    const trips = (snap.data()?.list||[]).filter(t=>t.id!==id);
+    await setDoc(ref, { list: trips });
+    showToast('🗑 已刪除');
+    loadFutureTrips();
+  } catch(e){ showToast('❌ 刪除失敗'); }
+};
+
+window.loadFutureTrips = async function(){
+  try {
+    const { doc, getDoc } = window._fbFns;
+    const snap = await getDoc(doc(window._db,'momoko_settings','future_trips'));
+    const trips = snap.exists() ? (snap.data().list||[]) : [];
+    // 首頁顯示
+    const homeEl = document.getElementById('home-future-trips');
+    if(homeEl){
+      if(trips.length){
+        homeEl.innerHTML = `
+          <div class="sec-hd" style="margin-top:8px;">🗓 預計行程</div>
+          <div style="margin:0 24px;display:flex;flex-direction:column;gap:8px;">
+            ${trips.map(t=>`
+              <div style="background:#fff;border:1px solid #ebebeb;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;">
+                <div style="font-size:22px;">✈️</div>
+                <div style="flex:1;">
+                  <div style="font-size:13px;font-weight:600;color:var(--ink);">${t.title}</div>
+                  <div style="font-size:11px;color:var(--muted);">${t.date}${t.loc?' ・ '+t.loc:''}</div>
+                </div>
+              </div>`).join('')}
+            <div style="height:120px;"></div>
+          </div>`;
+      } else {
+        homeEl.innerHTML = '<div style="height:120px;"></div>';
+      }
+    }
+    // 後台顯示
+    const adminEl = document.getElementById('future-trips-list');
+    if(adminEl){
+      adminEl.innerHTML = trips.length ? trips.map(t=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+          <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;">${t.title}</div>
+            <div style="font-size:11px;color:var(--muted);">${t.date}${t.loc?' ・ '+t.loc:''}</div>
+          </div>
+          <button onclick="editFutureTrip(${t.id})" style="padding:4px 10px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;color:#0369a1;font-size:11px;font-weight:700;">編輯</button>
+          <button onclick="deleteFutureTrip(${t.id})" style="padding:4px 10px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:6px;color:#ef4444;font-size:11px;font-weight:700;">刪除</button>
+        </div>`).join('') : '<p style="font-size:12px;color:var(--muted);">還沒有預計行程</p>';
+    }
+  } catch(e){ console.error(e); }
+};
 window.saveCatsFB = async function(cats) {
   try { await setDoc(doc(db,'momoko_settings','cats'), { list: cats }); } catch(e) { console.error(e); }
 };
@@ -443,7 +557,7 @@ window.loadProdsAndCats = async function() {
   --topbar-offset:80px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;background:var(--bg);-webkit-text-size-adjust:100%;overflow-y:auto;}
+html,body{min-height:100%;background:var(--bg);-webkit-text-size-adjust:100%;overflow-y:auto;}
 body{font-family:'Noto Sans TC',sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent;overflow-x:hidden;}
 button{font-family:inherit;cursor:pointer;border:none;background:none;}
 img{display:block;}
@@ -465,17 +579,18 @@ img{display:block;}
 .nbadge{position:absolute;top:5px;right:calc(50% - 17px);background:var(--ora);color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center;}
 
 /* PAGES */
-.page{display:none;padding-top:var(--topbar-offset);padding-bottom:calc(var(--tab)+var(--sb)+320px);min-height:100dvh;}
+.page{display:none;padding-top:var(--topbar-offset);padding-bottom:calc(var(--tab)+var(--sb)+80px);}
 .page.active{display:block;}
 #page-shop{padding-top:var(--topbar-offset);}
 #page-member{padding-top:0;padding-bottom:calc(var(--tab)+var(--sb)+40px);}
+#page-home{padding-bottom:calc(var(--tab)+var(--sb)+200px);}
 
 /* SECTION HEADER */
-.sec-hd{font-family:'Shippori Mincho',serif;font-size:16px;color:var(--ink);padding:8px 14px 10px;display:flex;align-items:center;justify-content:space-between;}
+.sec-hd{font-family:'Shippori Mincho',serif;font-size:16px;color:var(--ink);padding:8px 24px 10px;display:flex;align-items:center;justify-content:space-between;}
 .sec-hd small{font-family:'Noto Sans TC',sans-serif;font-size:11px;color:var(--muted);font-weight:400;}
 
 /* TRIP CARD */
-.trip-card{margin:0 14px 16px;border-radius:var(--r);overflow:hidden;box-shadow:0 4px 20px rgba(107,178,196,.12);}
+.trip-card{margin:0 24px 16px;border-radius:var(--r);overflow:hidden;box-shadow:0 4px 20px rgba(107,178,196,.12);}
 .trip-hd{background:linear-gradient(135deg,var(--pri),var(--pri-d));padding:14px 16px;}
 .trip-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.2);border-radius:99px;padding:3px 10px;font-size:11px;color:#fff;font-weight:600;}
 .live-dot{width:7px;height:7px;background:var(--yel);border-radius:50%;animation:blink 1.4s infinite;}
@@ -488,11 +603,11 @@ img{display:block;}
 .trip-meta span{font-size:13px;font-weight:700;}
 .countdown{background:var(--pri-s);border-radius:8px;padding:9px 13px;display:flex;align-items:center;justify-content:space-between;}
 .cd-label{font-size:11px;color:var(--pri-d);}
-.cd-time{font-family:'DM Serif Display',serif;font-size:18px;color:var(--pri-d);}
-.btn-cta{display:block;width:100%;margin-top:11px;padding:13px;background:var(--ora);color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-align:center;}
+.cd-time{font-family:'DM Serif Display',serif;font-size:13px;color:var(--pri-d);}
+.btn-cta{display:block;width:100%;margin-top:11px;padding:13px;background:#e8a87c;color:#5c3317;border-radius:10px;font-size:15px;font-weight:400;text-align:center;}
 
 /* PROG MINI */
-.prog-card{margin:0 14px 16px;background:#fff;border-radius:var(--r);border:1px solid var(--border);padding:14px 16px;}
+.prog-card{margin:0 24px 16px;background:#fff;border-radius:var(--r);border:1px solid var(--border);padding:14px 16px;}
 .prog-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;}
 .prog-hd h3{font-size:13px;font-weight:700;}
 .prog-pct{font-size:13px;font-weight:700;color:var(--pri);}
@@ -508,7 +623,7 @@ img{display:block;}
 .pstep.done .pstep-label,.pstep.cur .pstep-label{color:var(--ink);font-weight:700;}
 
 /* GUIDE ENTRY */
-.guide-entry{margin:0 14px 14px;background:#fff;border-radius:var(--r);border:1px solid var(--border);padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
+.guide-entry{margin:0 24px 14px;background:#fff;border-radius:var(--r);border:1px solid var(--border);padding:13px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;}
 
 /* SHOP */
 .shop-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 10px;position:sticky;top:var(--nav);z-index:90;background:var(--bg);}
@@ -984,6 +1099,8 @@ input[type=file]{display:none;}
     </div>
     <span style="color:var(--muted);font-size:17px;">›</span>
   </div>
+  <div id="home-future-trips" style="margin-bottom:calc(var(--tab)+var(--sb)+20px);"></div>
+  <div style="height:160px;"></div>
 </div>
 
 <!-- SHOP -->
@@ -1003,10 +1120,8 @@ input[type=file]{display:none;}
 <div class="page" id="page-orders">
   <div class="sec-hd">我的喊單</div>
   <div class="order-filter">
-    <button class="fchip active" onclick="fOrder(this,'all')">全部</button>
-    <button class="fchip" onclick="fOrder(this,'pending')">未採購</button>
-    <button class="fchip" onclick="fOrder(this,'processing')">採購中</button>
-    <button class="fchip" onclick="fOrder(this,'shipped')">已寄出</button>
+    <button class="fchip active" onclick="switchOrderTab(this,'current')">本次連線</button>
+    <button class="fchip" onclick="switchOrderTab(this,'history')">歷史訂單</button>
   </div>
   <div id="my-orders-list"></div>
 </div>
@@ -1236,8 +1351,23 @@ input[type=file]{display:none;}
       <div class="admin-stats" id="order-overview-stats"></div>
       <div class="admin-sec-hd">
         <div class="admin-sec-title">所有喊單紀錄</div>
-        <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出全部</button>
-        <button onclick="clearAndExportToSheets()" style="font-size:11px;padding:5px 10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;color:#ea580c;font-weight:700;">🔄 清空重匯</button>
+        <div style="display:flex;gap:6px;">
+          <button onclick="exportAllOrdersToSheets()" style="font-size:11px;padding:5px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;color:#16a34a;font-weight:700;">📤 匯出</button>
+          <button onclick="clearAndExportToSheets()" style="font-size:11px;padding:5px 10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;color:#ea580c;font-weight:700;">🔄 清空重匯</button>
+          <button onclick="archiveAllOrders()" style="font-size:11px;padding:5px 10px;background:#faf5ff;border:1.5px solid #d8b4fe;border-radius:8px;color:#7c3aed;font-weight:700;">📦 封存連線</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="fchip active" id="admin-order-tab-current" onclick="switchAdminOrderTab('current')">本次連線</button>
+        <button class="fchip" id="admin-order-tab-archived" onclick="switchAdminOrderTab('archived')">封存訂單</button>
+      </div>
+      <div id="fix-archive-bar" style="display:none;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+        <input id="fix-archive-name-input" class="finput" placeholder="例：2026-7月福岡連線" style="flex:1;margin-bottom:0;">
+        <button onclick="fixArchiveName()" class="btn-pri" style="white-space:nowrap;">確定修復</button>
+        <button onclick="document.getElementById('fix-archive-bar').style.display='none'" style="padding:8px 10px;background:#f5f5f5;border-radius:8px;font-size:12px;color:#888;">取消</button>
+      </div>
+      <div style="text-align:right;margin-bottom:6px;">
+        <button onclick="document.getElementById('fix-archive-bar').style.display='flex'" style="font-size:11px;color:#888;background:none;border:none;text-decoration:underline;cursor:pointer;">🔧 修復未命名封存</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -1380,7 +1510,33 @@ input[type=file]{display:none;}
       <label class="flabel">進度百分比（%）</label>
       <input class="finput" id="trip-pct" type="number" min="0" max="100" placeholder="例：65">
       <button class="btn-pri" onclick="saveTripFB()">💾 儲存行程與進度</button>
+      <div style="height:16px;"></div>
+      <div class="admin-sec-title" style="margin-bottom:12px;">🗓 未來預計行程</div>
+      <div id="future-trips-list" style="margin-bottom:12px;"></div>
+      <div style="background:#f9f9f9;border-radius:10px;padding:12px;border:1.5px dashed #ddd;">
+        <label class="flabel">行程名稱</label>
+        <input class="finput" id="ft-title" placeholder="例：大阪連線代購">
+        <label class="flabel">預計日期</label>
+        <input class="finput" id="ft-date" placeholder="例：2026/09">
+        <label class="flabel">地點（選填）</label>
+        <input class="finput" id="ft-loc" placeholder="例：心齋橋 / 難波">
+        <button class="btn-pri" onclick="addFutureTrip()" style="width:100%;">＋ 新增預計行程</button>
+      </div>
       <div style="height:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ARCHIVE MODAL -->
+<div id="archive-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:340px;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">📦 封存本次連線</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">設定封存名稱，方便日後查詢</div>
+    <label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px;">連線名稱</label>
+    <input id="archive-name-input" class="finput" placeholder="例：2026年7月福岡連線" style="margin-bottom:16px;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="confirmArchive()" class="btn-pri" style="flex:1;">確定封存</button>
+      <button onclick="closeArchiveModal()" style="flex:1;padding:11px;background:#f5f5f5;border-radius:10px;font-size:14px;color:#888;">取消</button>
     </div>
   </div>
 </div>
@@ -1925,13 +2081,28 @@ function fOrder(btn,filter){
   myOrderFilter=filter;
   renderMyOrders();
 }
+let myOrderTab = 'current';
+function switchOrderTab(el, tab){
+  document.querySelectorAll('.order-filter .fchip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  myOrderTab = tab;
+  renderMyOrders();
+}
+
+function isHistoryOrder(o){
+  // 所有商品都是已寄出(3/4)、店舖售完(2)、或封存 視為歷史
+  return o.archived || (o.items||[]).every(i=>i.step===2||i.step===3||i.step===4);
+}
+
 function renderMyOrders(){
   const el=document.getElementById('my-orders-list');
   const mid=window._currentMember?.memberId;
   const mine=mid ? ORDERS.filter(o=>o.memberId===mid) : [];
-  const filtered=mine.filter(o=>orderMatchesFilter(o,myOrderFilter));
+  const filtered = myOrderTab==='history'
+    ? mine.filter(o=>isHistoryOrder(o))
+    : mine.filter(o=>!isHistoryOrder(o));
   if(!filtered.length){
-    el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>'+(mine.length?'此狀態沒有訂單':'還沒有喊單紀錄')+'</p></div>';
+    el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>'+(myOrderTab==='history'?'沒有歷史訂單':'還沒有喊單紀錄')+'</p></div>';
     return;
   }
   el.innerHTML=filtered.map(o=>{
@@ -1942,11 +2113,12 @@ function renderMyOrders(){
         const img=i.imgs&&i.imgs[0]?`<img src="${i.imgs[0]}">`:`${i.emoji}`;
         return`<div class="oi"><div class="oi-img">${img}</div><div class="oi-info"><div class="oi-name">${i.name}</div><div class="oi-detail">× ${i.qty}${i.specs?' ・'+i.specs:''}｜${stText(i.step)}</div></div><div class="oi-price">NT$${i.price.toLocaleString()}</div></div>`;
       }).join('')}</div>
-      <div class="order-ft"><span class="order-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span><button class="btn-track" onclick="goPage('progress')">查看進度</button></div>
+      <div class="order-ft"><span class="order-total">合計 <strong>NT$${o.total.toLocaleString()}</strong></span>${myOrderTab==='current'?`<button class="btn-track" onclick="goPage('progress')">查看進度</button>`:''}</div>
     </div>`;
   }).join('');
   const badge=document.getElementById('orders-badge');
-  if(mine.length){badge.style.display='';badge.textContent=mine.length;}
+  const current=mine.filter(o=>!isHistoryOrder(o));
+  if(current.length){badge.style.display='';badge.textContent=current.length;}
   else{badge.style.display='none';}
 }
 
@@ -1988,7 +2160,7 @@ function switchATab(el,id){
   if(id==='members'){}
   if(id==='bill'){buildBillMemberSel();previewBill();}
   if(id==='summary') renderSummary();
-  if(id==='trip'&&window.loadTrip)loadTrip();
+  if(id==='trip'&&window.loadTrip){ loadTrip(); if(window.loadFutureTrips) loadFutureTrips(); }
 }
 function openAdmin(){
   document.getElementById('admin-overlay').style.display='block';
@@ -3010,6 +3182,41 @@ async function generateSummaryImage(){
   showToast('🖼 明細圖已產生！');
 }
 
+let adminOrderTab = 'current';
+function switchAdminOrderTab(tab){
+  adminOrderTab = tab;
+  document.getElementById('admin-order-tab-current')?.classList.toggle('active', tab==='current');
+  document.getElementById('admin-order-tab-archived')?.classList.toggle('active', tab==='archived');
+  renderAdminOrders();
+}
+
+async function archiveAllOrders(){
+  document.getElementById('archive-name-input').value = '';
+  document.getElementById('archive-modal').style.display='flex';
+}
+function closeArchiveModal(){
+  document.getElementById('archive-modal').style.display='none';
+}
+async function confirmArchive(){
+  const name = document.getElementById('archive-name-input').value.trim();
+  if(!name){ showToast('⚠ 請輸入連線名稱'); return; }
+  closeArchiveModal();
+  showToast('封存中…');
+  const { doc, updateDoc } = window._fbFns;
+  const toArchive = ORDERS.filter(o=>!o.archived);
+  for(const o of toArchive){
+    try{
+      await updateDoc(doc(window._db,'momoko_orders',o.fbId),{archived:true, archiveName:name});
+      const i = ORDERS.findIndex(x=>x.fbId===o.fbId);
+      if(i!==-1){ ORDERS[i].archived=true; ORDERS[i].archiveName=name; }
+    }catch(e){ console.error(e); }
+  }
+  saveOrders(ORDERS);
+  renderAdminOrders();
+  renderMyOrders();
+  showToast(`✅ 已封存「${name}」共 ${toArchive.length} 筆！`);
+}
+
 function buildOrderCatFilter(){
   const sel = document.getElementById('order-filter-cat');
   if(!sel) return;
@@ -3029,7 +3236,9 @@ function renderAdminOrders(){
   const filterMember = document.getElementById('order-filter-member')?.value.trim().toLowerCase() || '';
   const filterStatus = document.getElementById('order-filter-status')?.value || '';
 
-  let orders = ORDERS;
+  let orders = adminOrderTab==='archived'
+    ? ORDERS.filter(o=>o.archived).sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')))
+    : ORDERS.filter(o=>!o.archived);
   if(filterMember) orders = orders.filter(o=>
     (o.memberId||'').toLowerCase().includes(filterMember) ||
     (o.memberName||'').toLowerCase().includes(filterMember) ||
@@ -3052,7 +3261,7 @@ function renderAdminOrders(){
   const filterPay = document.getElementById('order-filter-pay')?.value || '';
   if(filterPay) orders = orders.filter(o=>(o.payStatus||'未送付款單')===filterPay);
 
-  const sort = document.getElementById('order-sort')?.value || 'newest';
+  const sort = document.getElementById('order-sort')?.value || (adminOrderTab==='archived'?'member':'newest');
   if(sort==='newest') orders.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()||0));
   else if(sort==='oldest') orders.sort((a,b)=>(a.createdAt?.toMillis?.()||0)-(b.createdAt?.toMillis?.()||0));
   else if(sort==='member') orders.sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')));
@@ -3061,14 +3270,84 @@ function renderAdminOrders(){
   const countEl=document.getElementById('order-count');
   if(countEl) countEl.textContent=`共 ${orders.length} 筆`;
   if(!orders.length){el.innerHTML='<div class="empty"><div class="empty-icon">📭</div><p>沒有符合的訂單</p></div>';return;}
-  el.innerHTML=orders.map((o,oi)=>{
+  if(adminOrderTab==='archived'){
+    const filterMember = document.getElementById('order-filter-member')?.value.trim().toLowerCase()||'';
+    const groups = {};
+    ORDERS.filter(o=>o.archived).forEach(o=>{
+      const key = o.archiveName||'未命名連線';
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(o);
+    });
+    let html='';
+    Object.entries(groups).forEach(([name, gOrders])=>{
+      // 依會員編號排序
+      gOrders.sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')));
+      // 篩選
+      const filtered = filterMember
+        ? gOrders.filter(o=>(o.memberId||'').toLowerCase().includes(filterMember)||(o.memberName||'').toLowerCase().includes(filterMember)||(o.items||[]).some(i=>(i.name||'').toLowerCase().includes(filterMember)))
+        : gOrders;
+      html+=`<div style="margin:12px 0 6px;padding:6px 12px;background:#faf5ff;border-radius:8px;font-size:12px;font-weight:700;color:#7c3aed;">📦 ${name}（${filtered.length} 筆）</div>`;
+      filtered.forEach(o=>{
+        const realOi = ORDERS.indexOf(o);
+        const mx = orderMaxStep(o);
+        const displayName = o.memberName||o.memberId||'未知';
+        const displayId = o.memberId||'';
+        const total = o.total||0;
+        html+=`<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:6px;overflow:hidden;">
+          <div onclick="toggleArchiveCard('arc-${o.fbId}')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#fff;">
+            <div style="flex:1;">
+              <div style="font-size:13px;font-weight:700;">${displayId}　${displayName}</div>
+              <div style="font-size:11px;color:var(--muted);">${o.date||''}｜NT$${total.toLocaleString()}｜${o.lineNick||''}</div>
+            </div>
+            <span class="ostatus ${stCls(mx)}" style="font-size:10px;padding:3px 8px;">${stText(mx)}</span>
+            <span style="color:#bbb;font-size:14px;" id="arc-arrow-${o.fbId}">›</span>
+          </div>
+          <div id="arc-${o.fbId}" style="display:none;border-top:1px solid #f0f0f0;">
+            ${renderOrderCard(o, realOi)}
+          </div>
+        </div>`;
+      });
+    });
+    el.innerHTML=html||'<div class="empty"><div class="empty-icon">📭</div><p>沒有封存訂單</p></div>';
+    return;
+  }
+async function fixArchiveName(){
+  const name = document.getElementById('fix-archive-name-input')?.value.trim();
+  if(!name){ showToast('⚠ 請輸入名稱'); return; }
+  showToast('修復中…');
+  const { doc, updateDoc } = window._fbFns;
+  const toFix = ORDERS.filter(o=>o.archived && !o.archiveName);
+  console.log('toFix:', toFix.length, 'archived total:', ORDERS.filter(o=>o.archived).length);
+  if(!toFix.length){ showToast('沒有需要修復的訂單'); return; }
+  for(const o of toFix){
+    try{
+      await updateDoc(doc(window._db,'momoko_orders',o.fbId),{archiveName:name});
+      const i = ORDERS.findIndex(x=>x.fbId===o.fbId);
+      if(i!==-1) ORDERS[i].archiveName=name;
+    }catch(e){ console.error(e); }
+  }
+  saveOrders(ORDERS);
+  renderAdminOrders();
+  showToast(`✅ 已修復 ${toFix.length} 筆！`);
+}
+
+function toggleArchiveCard(id){
+  const el = document.getElementById(id);
+  const fbId = id.replace('arc-','');
+  const arrow = document.getElementById('arc-arrow-'+fbId);
+  if(!el) return;
+  const isOpen = el.style.display!=='none';
+  el.style.display = isOpen?'none':'block';
+  if(arrow) arrow.textContent = isOpen?'›':'⌄';
+}
+
+function renderOrderCard(o, realOi){
     const mx=orderMaxStep(o);
     const displayName = o.memberName || o.user || o.memberId || '未知';
     const displayId = o.memberId || o.id || '';
     const displayDate = o.date || '';
     const displayPhone = o.phone || '';
     const shortId = o.id || o.fbId?.slice(-6) || '';
-    const realOi = ORDERS.indexOf(o);
     return`<div class="aorder">
       <div class="aorder-hd">
         <div>
@@ -3107,6 +3386,11 @@ function renderAdminOrders(){
         </div>
       </div>
     </div>`;
+}
+
+  el.innerHTML=orders.map((o,oi)=>{
+    const realOi = ORDERS.indexOf(o);
+    return renderOrderCard(o, realOi);
   }).join('');
 }
 function saveOrderProg(oi){
@@ -3320,6 +3604,7 @@ setInterval(tick,1000);tick();
 /* ── INIT ── */
 try{rebuildCatSelect();}catch(e){console.error('rebuildCatSelect',e);}
 try{renderGrid();}catch(e){console.error('renderGrid',e);}
+try{if(window.loadFutureTrips)loadFutureTrips();}catch(e){}
 try{renderMyOrders();}catch(e){console.error('renderMyOrders',e);}
 try{renderMyProgress();}catch(e){console.error('renderMyProgress',e);}
 try{updMemberCount();}catch(e){console.error('updMemberCount',e);}
