@@ -13,6 +13,11 @@
   window.addEventListener('load', function() {
     emailjs.init({publicKey: 'WL1Q2JRdRJu1OgONq'});
   });
+  window._openArc = function(gi){
+    var filtered = window['_archiveGroup_'+gi];
+    if(!filtered){ return; }
+    if(window.openArchiveDetail) window.openArchiveDetail('', filtered);
+  };
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1128,7 +1133,7 @@ input[type=file]{display:none;}
 </div>
 
 <!-- ARCHIVE DETAIL PAGE -->
-<div class="fullpage" id="archive-detail-page">
+<div class="fullpage" id="archive-detail-page" style="z-index:1100;">
   <div class="back-bar">
     <button class="back-btn" onclick="document.getElementById('archive-detail-page').style.display='none'">←</button>
     <div class="back-bar-title" id="archive-detail-title">封存訂單</div>
@@ -1673,6 +1678,150 @@ input[type=file]{display:none;}
 <div class="toast" id="toast"></div>
 
 <script>
+window.saveArcOrderProg = async function(oi){
+  const o = (window.ORDERS||[])[oi];
+  if(!o||!o.fbId){if(window.showToast)showToast('❌ 找不到訂單');return;}
+  o.items.forEach(function(_,ii){
+    const sel=document.getElementById('arc-sel-'+oi+'-'+ii);
+    const note=document.getElementById('arc-note-'+oi+'-'+ii);
+    if(sel) o.items[ii].step=parseInt(sel.value);
+    if(note) o.items[ii].note=note.value;
+  });
+  try{
+    const {doc,updateDoc}=window._fbFns;
+    await updateDoc(doc(window._db,'momoko_orders',o.fbId),{items:o.items});
+    if(window.saveOrders) saveOrders(window.ORDERS);
+    if(window.showToast) showToast('✅ 進度已儲存');
+  }catch(e){if(window.showToast)showToast('❌ 儲存失敗');console.error(e);}
+};
+
+window.markAllPacked = async function(memberId){
+  if(!confirm('確定把「'+memberId+'」的所有訂單標記為包貨中？')) return;
+  if(window.showToast) showToast('標記中…');
+  const {doc,updateDoc}=window._fbFns;
+  const memberOrders=(window.ORDERS||[]).filter(function(o){return o.archived&&String(o.memberId)===String(memberId);});
+  for(const o of memberOrders){
+    const updatedItems=(o.items||[]).map(function(item){return Object.assign({},item,{step:item.step===2?2:3});});
+    try{
+      await updateDoc(doc(window._db,'momoko_orders',o.fbId),{items:updatedItems});
+      const i=(window.ORDERS||[]).findIndex(function(x){return x.fbId===o.fbId;});
+      if(i!==-1) window.ORDERS[i].items=updatedItems;
+    }catch(e){console.error(e);}
+  }
+  if(window.saveOrders) saveOrders(window.ORDERS);
+  if(window.renderAdminOrders) renderAdminOrders();
+  if(window.showToast) showToast('✅ 已標記包貨中！');
+};
+
+window.saveArcOrderProg = async function(oi){
+  const o = (window.ORDERS||[])[oi];
+  if(!o||!o.fbId){if(window.showToast)showToast('❌ 找不到訂單');return;}
+  o.items.forEach(function(_,ii){
+    const sel=document.getElementById('arc-sel-'+oi+'-'+ii);
+    const note=document.getElementById('arc-note-'+oi+'-'+ii);
+    if(sel) o.items[ii].step=parseInt(sel.value);
+    if(note) o.items[ii].note=note.value;
+  });
+  try{
+    const {doc,updateDoc}=window._fbFns;
+    await updateDoc(doc(window._db,'momoko_orders',o.fbId),{items:o.items});
+    if(window.saveOrders) saveOrders(window.ORDERS);
+    if(window.showToast) showToast('✅ 進度已儲存');
+  }catch(e){if(window.showToast)showToast('❌ 儲存失敗');console.error(e);}
+};
+
+window.markAllPacked = async function(memberId){
+  if(!confirm('確定把「'+memberId+'」的所有訂單標記為包貨中？')) return;
+  if(window.showToast) showToast('標記中…');
+  const {doc,updateDoc}=window._fbFns;
+  const memberOrders=(window.ORDERS||[]).filter(function(o){return o.archived&&String(o.memberId)===String(memberId);});
+  for(const o of memberOrders){
+    const updatedItems=(o.items||[]).map(function(item){return Object.assign({},item,{step:item.step===2?2:3});});
+    try{
+      await updateDoc(doc(window._db,'momoko_orders',o.fbId),{items:updatedItems});
+      const i=(window.ORDERS||[]).findIndex(function(x){return x.fbId===o.fbId;});
+      if(i!==-1) window.ORDERS[i].items=updatedItems;
+    }catch(e){console.error(e);}
+  }
+  if(window.saveOrders) saveOrders(window.ORDERS);
+  if(window.renderAdminOrders) renderAdminOrders();
+  if(window.showToast) showToast('✅ 已標記包貨中！');
+};
+
+window.openArchiveDetail = function(groupName, filtered){
+  var STATUS = window.STATUS_LIST || [
+    {val:0,text:'未採購'},{val:1,text:'採購完成'},{val:2,text:'店舖售完'},
+    {val:3,text:'包貨中'},{val:4,text:'已寄出'}
+  ];
+  var _maxStep = function(o){ return Math.max.apply(null,(o.items||[]).map(function(i){return i.step||0;})); };
+  var _stText = function(v){ var s=STATUS.find(function(x){return x.val===v;}); return s?s.text:'未採購'; };
+  var _stCls = function(v){ return 'os-'+v; };
+  document.getElementById('archive-detail-title').textContent = '📦 '+groupName;
+  document.getElementById('archive-detail-page').style.display='block';
+  window.scrollTo(0,0);
+  var html='';
+  (filtered||[]).forEach(function(m, mi){
+    var totalAll = m.orders.reduce(function(s,o){return s+(o.total||0);},0);
+    var cardId = 'det-card-'+mi;
+    var mx = typeof orderMaxStep==='function' ? Math.max.apply(null,m.orders.map(function(o){return orderMaxStep(o);})) : 0;
+    var statusHtml = typeof stCls==='function' ? '<span class="ostatus '+stCls(mx)+'" style="font-size:11px;padding:3px 8px;">'+stText(mx)+'</span>' : '';
+    var ordersHtml = m.orders.map(function(o){
+      var oi = (window.ORDERS||[]).indexOf(o);
+      var mx = typeof orderMaxStep==='function' ? orderMaxStep(o) : 0;
+      var statusCls = typeof stCls==='function' ? stCls(mx) : '';
+      var statusTxt = typeof stText==='function' ? stText(mx) : '';
+      var itemsHtml = (o.items||[]).map(function(item,ii){
+        var img = item.imgs&&item.imgs[0];
+        var statusOpts = (STATUS).map(function(s){
+          return '<option value="'+s.val+'"'+(item.step===s.val?' selected':'')+'>'+s.text+'</option>';
+        }).join('');
+        return '<div class="aoi">'
+          +'<div class="aoi-img">'+(img?'<img src="'+img+'">':item.emoji||'🛍')+'</div>'
+          +'<div class="aoi-name">'+item.name+(item.specs?' <span style="font-size:10px;color:var(--muted);">('+item.specs+')</span>':'')+'</div>'
+          +'<div class="aoi-qty">×'+item.qty+'</div>'
+          +'<div class="aoi-price">NT$'+item.price.toLocaleString()+'</div>'
+          +'</div>'
+          +'<div class="aoi-prog">'
+          +'<select class="aoi-sel" id="arc-sel-'+oi+'-'+ii+'">'+statusOpts+'</select>'
+          +'<input class="aoi-note" id="arc-note-'+oi+'-'+ii+'" placeholder="備註" value="'+(item.note||'')+'">'
+          +'</div>';
+      }).join('');
+      return '<div class="aorder">'
+        +'<div class="aorder-hd">'
+        +'<div><div class="aorder-id">'+(o.id||o.fbId?.slice(-6)||'')+'｜'+(o.date||'')+'</div></div>'
+        +'<span class="ostatus '+statusCls+'" style="font-size:10px;padding:3px 8px;">'+statusTxt+'</span>'
+        +'</div>'
+        +'<div class="aorder-items">'+itemsHtml+'</div>'
+        +'<div class="aorder-ft">'
+        +'<span class="aorder-total">合計 <strong>NT$'+o.total.toLocaleString()+'</strong></span>'
+        +'<div style="display:flex;gap:6px;">'
+        +'<button onclick="window.saveArcOrderProg('+oi+')" class="btn-save-prog">儲存進度</button>'
+        +'</div>'
+        +'</div>'
+        +'</div>';
+    }).join('');
+    html += '<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:8px;overflow:hidden;">'
+      +'<div onclick="var e=document.getElementById(\''+cardId+'\');if(e){var a=document.getElementById(\'arw-'+cardId+'\');var open=e.style.display!==\'none\';e.style.display=open?\'none\':\'block\';if(a)a.textContent=open?\'›\':\'⌄\';}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:#fff;">'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:700;">'+m.memberId+'　'+m.memberName+'　'+(m.lineNick||'')+'</div>'
+      +'<div style="font-size:11px;color:#888;">'+m.orders.length+' 筆訂單｜NT$'+totalAll.toLocaleString()+'</div></div>'
+      +statusHtml
+      +'<span style="color:#bbb;font-size:16px;" id="arw-'+cardId+'">›</span></div>'
+      +'<div id="'+cardId+'" style="display:none;border-top:1px solid #f0f0f0;">'
+      +'<div style="padding:8px;background:#f0fdf4;border-bottom:1px solid #dcfce7;display:flex;gap:6px;">'
+      +'<button data-mid="'+m.memberId+'" class="arc-ship-btn" style="flex:1;padding:8px;background:#22c55e;color:#fff;border-radius:8px;font-size:11px;font-weight:700;border:none;">📦 一鍵已寄出</button>'
+      +'<button data-mid="'+m.memberId+'" class="arc-pack-btn" style="flex:1;padding:8px;background:#3b82f6;color:#fff;border-radius:8px;font-size:11px;font-weight:700;border:none;">📫 一鍵已包貨</button>'
+      +'</div>'+ordersHtml+'</div></div>';
+  });
+  var body = document.getElementById('archive-detail-body');
+  body.innerHTML = html||'<p style="color:#aaa;text-align:center;padding:40px 0;">沒有會員</p>';
+  body.querySelectorAll('.arc-ship-btn').forEach(function(btn){
+    btn.onclick = function(){ if(window.markAllShipped) window.markAllShipped(btn.getAttribute('data-mid')); };
+  });
+  body.querySelectorAll('.arc-pack-btn').forEach(function(btn){
+    btn.onclick = function(){ if(window.markAllPacked) window.markAllPacked(btn.getAttribute('data-mid')); };
+  });
+};
+
 /* ── VERSION RESET: clear old default data on first load ── */
 if(localStorage.getItem('momo_ver')!=='v3'){
   localStorage.removeItem('momo_p');
@@ -3377,7 +3526,7 @@ async function renderAdminOrders(){
       });
       const gi = groupIndex;
       window['_archiveGroup_'+gi] = filtered;
-      html += '<div data-gi="'+gi+'" class="arc-grp-btn" style="border:1.5px solid #d8b4fe;border-radius:12px;margin-bottom:10px;padding:14px 16px;cursor:pointer;background:#faf5ff;display:flex;align-items:center;gap:10px;">'
+      html += '<div onclick="(function(){var f=window[\'_archiveGroup_'+gi+'\'];var n=\''+name.replace(/'/g,"\\'").replace(/\n/g,'')+'\';if(f&&window.openArchiveDetail)window.openArchiveDetail(n,f);})()" style="border:1.5px solid #d8b4fe;border-radius:12px;margin-bottom:10px;padding:14px 16px;cursor:pointer;background:#faf5ff;display:flex;align-items:center;gap:10px;">'
         + '<div style="flex:1;">'
         + '<div style="font-size:14px;font-weight:700;color:#7c3aed;">📦 '+name+'</div>'
         + '<div style="font-size:11px;color:#a78bfa;">'+filtered.length+' 位會員｜NT$'+totalGroupAmt.toLocaleString()+'</div>'
@@ -3387,15 +3536,6 @@ async function renderAdminOrders(){
       groupIndex++;
     });
     el.innerHTML=html||'<div class="empty"><div class="empty-icon">📭</div><p>沒有封存訂單</p></div>';
-    // 綁定點擊事件
-    el.querySelectorAll('.arc-grp-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        const gi = btn.getAttribute('data-gi');
-        const filtered = window['_archiveGroup_'+gi];
-        const title = btn.querySelector('[style*="color:#7c3aed"]')?.textContent?.replace('📦 ','') || '封存訂單';
-        openArchiveDetail(title, filtered);
-      });
-    });
     return;
   }
 window.exportArchivedToExcel = async function(){
@@ -3443,7 +3583,7 @@ window.exportArchivedToExcel = async function(){
   showToast('✅ Excel 已下載！');
 }
 
-function openArchiveDetail(groupName, filtered){
+window.openArchiveDetail = function(groupName, filtered){
   document.getElementById('archive-detail-title').textContent = '📦 '+groupName;
   document.getElementById('archive-detail-page').style.display='block';
   window.scrollTo(0,0);
