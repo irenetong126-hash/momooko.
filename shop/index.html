@@ -1127,6 +1127,15 @@ input[type=file]{display:none;}
   <div id="my-orders-list"></div>
 </div>
 
+<!-- ARCHIVE DETAIL PAGE -->
+<div class="fullpage" id="archive-detail-page">
+  <div class="back-bar">
+    <button class="back-btn" onclick="document.getElementById('archive-detail-page').style.display='none'">←</button>
+    <div class="back-bar-title" id="archive-detail-title">封存訂單</div>
+  </div>
+  <div id="archive-detail-body" style="padding:12px 14px 120px;"></div>
+</div>
+
 <!-- PROGRESS -->
 <div class="page" id="page-progress">
   <div class="sec-hd">我的採買進度</div>
@@ -1364,12 +1373,12 @@ input[type=file]{display:none;}
       </div>
       <div id="fix-archive-bar" style="display:none;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
         <input id="fix-archive-name-input" class="finput" placeholder="例：2026-7月福岡連線" style="flex:1;margin-bottom:0;">
-        <button onclick="fixArchiveName()" class="btn-pri" style="white-space:nowrap;">確定修復</button>
+        <button onclick="window.fixArchiveName()" class="btn-pri" style="white-space:nowrap;">確定修復</button>
         <button onclick="document.getElementById('fix-archive-bar').style.display='none'" style="padding:8px 10px;background:#f5f5f5;border-radius:8px;font-size:12px;color:#888;">取消</button>
       </div>
       <div style="text-align:right;margin-bottom:6px;">
         <button onclick="document.getElementById('fix-archive-bar').style.display='flex'" style="font-size:11px;color:#888;background:none;border:none;text-decoration:underline;cursor:pointer;">🔧 修復未命名封存</button>
-        <button onclick="alert('XLSX available: '+(typeof XLSX));exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
+        <button onclick="window.exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -3329,43 +3338,64 @@ async function renderAdminOrders(){
     const filterPay = document.getElementById('order-filter-pay')?.value||'';
 
     let html='';
-    Object.entries(groups).forEach(([name, memberMap])=>{
-      const members = Object.values(memberMap).sort((a,b)=>a.memberId.localeCompare(b.memberId));
-      const filtered = members.filter(m=>{
-        // 關鍵字篩選
-        if(filterMember && !m.memberId.toLowerCase().includes(filterMember) && !m.memberName.toLowerCase().includes(filterMember) && !m.orders.some(o=>(o.items||[]).some(i=>(i.name||'').toLowerCase().includes(filterMember)))) return false;
-        // 採購狀態篩選
-        if(filterStatus==='pending') return m.orders.some(o=>(o.items||[]).some(i=>!i.step||i.step===0));
-        if(filterStatus==='done') return m.orders.some(o=>(o.items||[]).every(i=>i.step&&i.step>0));
-        if(filterStatus==='soldout') return m.orders.some(o=>(o.items||[]).some(i=>i.step===2));
-        // 付款篩選
-        if(filterPay) return m.orders.some(o=>(o.payStatus||'未送付款單')===filterPay);
+    let groupIndex = 0;
+    Object.entries(groups).forEach(function(entry){
+      const name = entry[0];
+      const memberMap = entry[1];
+      const members = Object.values(memberMap).sort(function(a,b){return a.memberId.localeCompare(b.memberId);});
+      const filtered = members.filter(function(m){
+        if(filterMember && !m.memberId.toLowerCase().includes(filterMember) && !m.memberName.toLowerCase().includes(filterMember) && !m.orders.some(function(o){return (o.items||[]).some(function(i){return (i.name||'').toLowerCase().includes(filterMember);});})) return false;
+        if(filterStatus==='pending') return m.orders.some(function(o){return (o.items||[]).some(function(i){return !i.step||i.step===0;});});
+        if(filterStatus==='done') return m.orders.some(function(o){return (o.items||[]).every(function(i){return i.step&&i.step>0;});});
+        if(filterStatus==='soldout') return m.orders.some(function(o){return (o.items||[]).some(function(i){return i.step===2;});});
+        if(filterPay) return m.orders.some(function(o){return (o.payStatus||'未送付款單')===filterPay;});
         return true;
       });
-      html+=`<div style="margin:12px 0 6px;padding:6px 12px;background:#faf5ff;border-radius:8px;font-size:12px;font-weight:700;color:#7c3aed;">📦 ${name}（${filtered.length} 位會員）</div>`;
-      filtered.forEach((m, mi)=>{
-        const totalAll = m.orders.reduce((s,o)=>s+(o.total||0),0);
-        const mx = Math.max(...m.orders.map(o=>orderMaxStep(o)));
-        const cardId = `arc-card-${Date.now()}-${mi}`;
-        html+=`<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:6px;overflow:hidden;">
-          <div onclick="var e=document.getElementById('${cardId}');var a=document.getElementById('arw-${cardId}');if(e){var open=e.style.display!=='none';e.style.display=open?'none':'block';if(a)a.textContent=open?'›':'⌄';}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#fff;">
-            <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;">${m.memberId}　${m.memberName}　${m.lineNick||''}</div>
-              <div style="font-size:11px;color:var(--muted);">${m.orders.length} 筆訂單｜NT$${totalAll.toLocaleString()}</div>
-            </div>
-            <span class="ostatus ${stCls(mx)}" style="font-size:10px;padding:3px 8px;">${stText(mx)}</span>
-            <span style="color:#bbb;font-size:14px;" id="arw-${cardId}">›</span>
-          </div>
-          <div id="${cardId}" style="display:none;border-top:1px solid #f0f0f0;">
-            <div style="padding:8px 14px;background:#f0fdf4;border-bottom:1px solid #dcfce7;">
-              <button onclick="markAllShipped('${m.memberId}','${name.replace(/'/g,"\\'")}')" style="width:100%;padding:8px;background:#22c55e;color:#fff;border-radius:8px;font-size:12px;font-weight:700;border:none;">📦 一鍵標記全部已寄出（不含售完）</button>
-            </div>
-            ${m.orders.map(o=>renderOrderCard(o, ORDERS.indexOf(o))).join('')}
-          </div>
-        </div>`;
+      const groupId = 'grp-'+groupIndex;
+      const totalGroupAmt = filtered.reduce(function(s,m){return s+m.orders.reduce(function(ss,o){return ss+(o.total||0);},0);},0);
+      let membersHtml = '';
+      filtered.forEach(function(m, mi){
+        const totalAll = m.orders.reduce(function(s,o){return s+(o.total||0);},0);
+        const mx = Math.max.apply(null, m.orders.map(function(o){return orderMaxStep(o);}));
+        const cardId = 'arc-card-'+groupIndex+'-'+mi;
+        let ordersHtml = m.orders.map(function(o){return renderOrderCard(o, ORDERS.indexOf(o));}).join('');
+        membersHtml += '<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:6px;overflow:hidden;">'
+          + '<div onclick="var e=document.getElementById(\''+cardId+'\');var a=document.getElementById(\'arw-'+cardId+'\');if(e){var open=e.style.display!==\'none\';e.style.display=open?\'none\':\'block\';if(a)a.textContent=open?\'›\':\'⌄\';}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#fff;">'
+          + '<div style="flex:1;">'
+          + '<div style="font-size:13px;font-weight:700;">'+m.memberId+'　'+m.memberName+'　'+(m.lineNick||'')+'</div>'
+          + '<div style="font-size:11px;color:var(--muted);">'+m.orders.length+' 筆訂單｜NT$'+totalAll.toLocaleString()+'</div>'
+          + '</div>'
+          + '<span class="ostatus '+stCls(mx)+'" style="font-size:10px;padding:3px 8px;">'+stText(mx)+'</span>'
+          + '<span style="color:#bbb;font-size:14px;" id="arw-'+cardId+'">›</span>'
+          + '</div>'
+          + '<div id="'+cardId+'" style="display:none;border-top:1px solid #f0f0f0;">'
+          + '<div style="padding:8px 14px;background:#f0fdf4;border-bottom:1px solid #dcfce7;">'
+          + '<button onclick="window.markAllShipped(\''+m.memberId+'\')" style="width:100%;padding:8px;background:#22c55e;color:#fff;border-radius:8px;font-size:12px;font-weight:700;border:none;">📦 一鍵標記全部已寄出（不含售完）</button>'
+          + '</div>'
+          + ordersHtml
+          + '</div></div>';
       });
+      const gi = groupIndex;
+      window['_archiveGroup_'+gi] = filtered;
+      html += '<div data-gi="'+gi+'" class="arc-grp-btn" style="border:1.5px solid #d8b4fe;border-radius:12px;margin-bottom:10px;padding:14px 16px;cursor:pointer;background:#faf5ff;display:flex;align-items:center;gap:10px;">'
+        + '<div style="flex:1;">'
+        + '<div style="font-size:14px;font-weight:700;color:#7c3aed;">📦 '+name+'</div>'
+        + '<div style="font-size:11px;color:#a78bfa;">'+filtered.length+' 位會員｜NT$'+totalGroupAmt.toLocaleString()+'</div>'
+        + '</div>'
+        + '<span style="color:#a78bfa;font-size:18px;">›</span>'
+        + '</div>';
+      groupIndex++;
     });
     el.innerHTML=html||'<div class="empty"><div class="empty-icon">📭</div><p>沒有封存訂單</p></div>';
+    // 綁定點擊事件
+    el.querySelectorAll('.arc-grp-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const gi = btn.getAttribute('data-gi');
+        const filtered = window['_archiveGroup_'+gi];
+        const title = btn.querySelector('[style*="color:#7c3aed"]')?.textContent?.replace('📦 ','') || '封存訂單';
+        openArchiveDetail(title, filtered);
+      });
+    });
     return;
   }
 window.exportArchivedToExcel = async function(){
@@ -3411,6 +3441,35 @@ window.exportArchivedToExcel = async function(){
   const date = new Date().toLocaleDateString('zh-TW').replace(/\//g,'-');
   XLSX.writeFile(wb, `ももコ封存訂單_${date}.xlsx`);
   showToast('✅ Excel 已下載！');
+}
+
+function openArchiveDetail(groupName, filtered){
+  document.getElementById('archive-detail-title').textContent = '📦 '+groupName;
+  document.getElementById('archive-detail-page').style.display='block';
+  window.scrollTo(0,0);
+  let html='';
+  filtered.forEach(function(m, mi){
+    const totalAll = m.orders.reduce(function(s,o){return s+(o.total||0);},0);
+    const mx = Math.max.apply(null, m.orders.map(function(o){return orderMaxStep(o);}));
+    const cardId = 'det-card-'+mi;
+    let ordersHtml = m.orders.map(function(o){return renderOrderCard(o, ORDERS.indexOf(o));}).join('');
+    html += '<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:8px;overflow:hidden;">'
+      + '<div onclick="var e=document.getElementById(\''+cardId+'\');var a=document.getElementById(\'arw-'+cardId+'\');if(e){var open=e.style.display!==\'none\';e.style.display=open?\'none\':\'block\';if(a)a.textContent=open?\'›\':\'⌄\';}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;background:#fff;">'
+      + '<div style="flex:1;">'
+      + '<div style="font-size:14px;font-weight:700;">'+m.memberId+'　'+m.memberName+'　'+(m.lineNick||'')+'</div>'
+      + '<div style="font-size:11px;color:var(--muted);">'+m.orders.length+' 筆訂單｜NT$'+totalAll.toLocaleString()+'</div>'
+      + '</div>'
+      + '<span class="ostatus '+stCls(mx)+'" style="font-size:11px;padding:3px 8px;">'+stText(mx)+'</span>'
+      + '<span style="color:#bbb;font-size:16px;" id="arw-'+cardId+'">›</span>'
+      + '</div>'
+      + '<div id="'+cardId+'" style="display:none;border-top:1px solid #f0f0f0;">'
+      + '<div style="padding:8px 14px;background:#f0fdf4;border-bottom:1px solid #dcfce7;">'
+      + '<button onclick="window.markAllShipped(\''+m.memberId+'\')" style="width:100%;padding:8px;background:#22c55e;color:#fff;border-radius:8px;font-size:12px;font-weight:700;border:none;">📦 一鍵標記全部已寄出（不含售完）</button>'
+      + '</div>'
+      + ordersHtml
+      + '</div></div>';
+  });
+  document.getElementById('archive-detail-body').innerHTML = html||'<p style="color:var(--muted);text-align:center;padding:40px 0;">沒有符合的會員</p>';
 }
 
 window.fixArchiveName = async function(){
