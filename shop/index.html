@@ -3230,17 +3230,18 @@ async function markAllShipped(memberId, archiveName){
   if(!confirm(`確定把「${memberId}」的所有訂單商品標記為已寄出？（店舖售完不受影響）`)) return;
   showToast('標記中…');
   const { doc, updateDoc } = window._fbFns;
-  const memberOrders = ORDERS.filter(o=>o.archived && o.memberId===memberId && o.archiveName===archiveName);
+  const memberOrders = ORDERS.filter(o=>o.archived && String(o.memberId)===String(memberId));
+  console.log('markAllShipped:', memberId, 'found:', memberOrders.length);
   for(const o of memberOrders){
     const updatedItems = (o.items||[]).map(item=>({
       ...item,
-      step: item.step===2 ? 2 : 4  // 售完(2)不動，其他改為已寄出(4)
+      step: item.step===2 ? 2 : 4
     }));
     try{
       await updateDoc(doc(window._db,'momoko_orders',o.fbId),{ items: updatedItems });
       const i = ORDERS.findIndex(x=>x.fbId===o.fbId);
       if(i!==-1) ORDERS[i].items = updatedItems;
-    }catch(e){ console.error(e); }
+    }catch(e){ console.error('update failed:', e); }
   }
   saveOrders(ORDERS);
   renderAdminOrders();
@@ -3411,7 +3412,7 @@ async function exportArchivedToExcel(){
   showToast('✅ Excel 已下載！');
 }
 
-async function fixArchiveName(){
+window.fixArchiveName = async function(){
   const name = document.getElementById('fix-archive-name-input')?.value.trim();
   if(!name){ showToast('⚠ 請輸入名稱'); return; }
   showToast('修復中…');
