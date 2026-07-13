@@ -211,6 +211,7 @@ window.saveOrderProgFB = async function(oi) {
       const price = isSoldOut ? 0 : item.price;
       return { name: item.name, specs: item.specs||'', price, cost, profit: price-cost };
     });
+    console.log('Sheets update payload:', JSON.stringify({ action:'updateOrder', fbId: o.fbId, updates }));
     fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec',{
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'application/json'},
@@ -410,7 +411,7 @@ window.loadProdsAndCats = async function() {
   --pri:#6bb2c4;--pri-d:#3a8fa3;--pri-s:#eaf5f8;
   --ora:#e67406;--ora-d:#b85a00;--ora-s:#fef4e8;
   --yel:#ffd339;--ink:#1c3640;--muted:#7a9faa;
-  --border:#c8e4ec;--bg:#f4fbfd;--card:#fff;
+  --border:#c8e4ec;--bg:#ffffff;--card:#fff;
   --grn:#2d7a4f;--grn-s:#edf7f1;
   /* FIX: bottom nav taller so icons don't get cut */
   --r:14px;--nav:56px;--tab:72px;
@@ -490,23 +491,26 @@ img{display:block;}
 .shop-topbar-left{font-size:16px;font-weight:700;color:var(--pri-d);font-family:'Shippori Mincho',serif;background:var(--pri-s);padding:5px 16px;border-radius:99px;display:inline-block;}
 .burger-btn{display:flex;flex-direction:column;gap:4px;padding:6px;cursor:pointer;}
 .burger-btn span{width:20px;height:2px;background:var(--ink);border-radius:2px;display:block;}
-.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;}
+.prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:0 24px;}
 
 /* Square product tile */
-.prod-tile{background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;}
-.prod-tile:active{opacity:.9;}
-.prod-tile-img{width:100%;aspect-ratio:1/1;overflow:hidden;background:var(--pri-s);display:flex;align-items:center;justify-content:center;font-size:52px;position:relative;}
+.prod-tile{background:#fff;border-radius:16px;border:1px solid #ebebeb;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;box-shadow:0 1px 6px rgba(0,0,0,.04);}
+.prod-tile:active{opacity:.85;}
+.prod-tile-img{width:100%;aspect-ratio:1/1;overflow:hidden;background:#f9f9f9;display:flex;align-items:center;justify-content:center;font-size:52px;position:relative;}
 .prod-tile-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
-.prod-tile-badge{position:absolute;top:7px;left:7px;background:var(--ora);color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;z-index:2;}
+.prod-tile-badge{position:absolute;top:7px;left:7px;background:var(--ora);color:#fff;font-size:9px;font-weight:600;padding:2px 7px;border-radius:99px;z-index:2;}
+.tile-star-btn{position:absolute;bottom:7px;right:7px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);backdrop-filter:blur(4px);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:3;box-shadow:0 1px 4px rgba(0,0,0,.12);transition:transform .15s;}
+.tile-star-btn:active{transform:scale(1.2);}
+.tile-star-btn svg{width:16px;height:16px;}
 /* Heart/fav button - now in detail page */
 .fav-btn{width:36px;height:36px;border-radius:50%;background:var(--pri-s);display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);cursor:pointer;transition:transform .15s;flex-shrink:0;}
 .fav-btn:active{transform:scale(1.2);}
 .fav-btn svg{transition:fill .2s;}
-.prod-tile-body{padding:8px 9px 10px;border-top:1px solid var(--border);}
-.prod-tile-store{font-size:9px;color:var(--muted);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.prod-tile-name{font-size:12px;font-weight:700;line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.prod-tile-price{font-size:13px;font-weight:700;color:var(--ora);}
-.prod-tile-stock{font-size:9px;color:var(--muted);margin-top:1px;}
+.prod-tile-body{padding:8px 9px 10px;}
+.prod-tile-store{font-size:9px;color:#bbb;font-weight:400;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.prod-tile-name{font-size:12px;font-weight:400;line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#333;}
+.prod-tile-price{font-size:13px;font-weight:400;color:var(--ora);}
+.prod-tile-stock{font-size:9px;color:var(--muted);margin-top:2px;}
 .prod-tile-stock.low{color:#d97706;}
 /* Specs */
 .spec-section{margin:10px 0;}
@@ -598,7 +602,7 @@ img{display:block;}
 .oi-name{font-size:13px;font-weight:600;margin-bottom:1px;}
 .oi-detail{font-size:11px;color:var(--muted);}
 .oi-price{font-size:13px;font-weight:700;color:var(--ora);}
-.order-ft{padding:9px 14px;background:#f8fdfe;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.order-ft{padding:9px 14px;background:#ffffff;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .order-total{font-size:12px;color:var(--muted);}
 .order-total strong{color:var(--ink);}
 .btn-track{font-size:12px;font-weight:700;color:var(--pri);padding:5px 12px;border:1.5px solid var(--pri);border-radius:99px;}
@@ -634,7 +638,7 @@ img{display:block;}
 .menu-card{background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;margin-bottom:10px;}
 .menu-item{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
 .menu-item:last-child{border-bottom:none;}
-.menu-item:active{background:#f8fdfe;}
+.menu-item:active{background:#ffffff;}
 .menu-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
 .menu-title{font-size:13px;font-weight:600;margin-bottom:1px;}
 .menu-desc{font-size:11px;color:var(--muted);}
@@ -670,12 +674,12 @@ img{display:block;}
 .sheet-title{font-family:'Shippori Mincho',serif;font-size:16px;padding:13px 18px 9px;}
 .sheet-body{padding:0 18px;}
 .flabel{font-size:12px;font-weight:600;color:var(--ink);margin-bottom:5px;display:block;}
-.finput{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--ink);background:#f8fdfe;outline:none;margin-bottom:11px;}
+.finput{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--ink);background:#ffffff;outline:none;margin-bottom:11px;}
 .finput:focus{border-color:var(--pri);background:#fff;}
-.ftextarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;color:var(--ink);background:#f8fdfe;outline:none;margin-bottom:11px;resize:vertical;min-height:80px;line-height:1.6;}
+.ftextarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:inherit;color:var(--ink);background:#ffffff;outline:none;margin-bottom:11px;resize:vertical;min-height:80px;line-height:1.6;}
 .ftextarea:focus{border-color:var(--pri);background:#fff;}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.fsel{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--ink);background:#f8fdfe;outline:none;margin-bottom:11px;appearance:none;}
+.fsel{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;font-family:inherit;color:var(--ink);background:#ffffff;outline:none;margin-bottom:11px;appearance:none;}
 
 /* Image upload */
 .imgs-upload-area{margin-bottom:11px;}
@@ -720,7 +724,7 @@ input[type=file]{display:none;}
 .confirm-box-icon{font-size:34px;margin-bottom:9px;}
 .confirm-box-title{font-family:'Shippori Mincho',serif;font-size:16px;margin-bottom:5px;}
 .confirm-box-desc{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;}
-.confirm-box-items{background:#f8fdfe;border-radius:10px;padding:12px;margin-bottom:14px;text-align:left;}
+.confirm-box-items{background:#ffffff;border-radius:10px;padding:12px;margin-bottom:14px;text-align:left;}
 .confirm-box-item{font-size:12px;color:var(--ink);padding:3px 0;display:flex;justify-content:space-between;}
 .confirm-box-total{font-size:14px;font-weight:700;color:var(--ora);border-top:1px solid var(--border);padding-top:8px;margin-top:6px;display:flex;justify-content:space-between;}
 .confirm-final-btn{width:100%;padding:13px;background:var(--ora);color:#fff;border-radius:11px;font-size:15px;font-weight:700;margin-bottom:8px;}
@@ -756,7 +760,7 @@ input[type=file]{display:none;}
 .admin-close{color:rgba(255,255,255,.75);font-size:13px;cursor:pointer;padding:8px;}
 .admin-body{padding:14px;}
 /* FIX: 3 tabs now (整體進度 merged into 訂單) */
-.admin-tabs{display:flex;background:#e0f0f5;border-radius:10px;padding:3px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap;}
+.admin-tabs{display:flex;background:#f0f0f0;border-radius:10px;padding:3px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;flex-wrap:nowrap;}
 .admin-tabs::-webkit-scrollbar{display:none;}
 .atab{flex:0 0 auto;text-align:center;padding:8px 12px;border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap;}
 .atab.active{background:#fff;color:var(--pri);}
@@ -798,11 +802,11 @@ input[type=file]{display:none;}
 .aoi-name{flex:1;font-size:12px;font-weight:600;}
 .aoi-qty{font-size:10px;color:var(--muted);}
 .aoi-price{font-size:11px;font-weight:700;color:var(--ora);}
-.aoi-prog{padding:6px 13px 11px;background:#f8fdfe;border-top:1px solid var(--border);}
+.aoi-prog{padding:6px 13px 11px;background:#ffffff;border-top:1px solid var(--border);}
 .aoi-sel{width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;color:var(--ink);background:#fff;outline:none;cursor:pointer;margin-bottom:6px;appearance:none;}
 .aoi-note{width:100%;padding:6px 9px;border:1.5px solid var(--border);border-radius:7px;font-size:11px;font-family:inherit;color:var(--ink);background:#fff;outline:none;}
 .aoi-note:focus{border-color:var(--pri);}
-.aorder-ft{padding:8px 13px;display:flex;align-items:center;justify-content:space-between;background:#f8fdfe;border-top:1px solid var(--border);}
+.aorder-ft{padding:8px 13px;display:flex;align-items:center;justify-content:space-between;background:#ffffff;border-top:1px solid var(--border);}
 .aorder-total{font-size:12px;color:var(--muted);}
 .aorder-total strong{color:var(--ink);}
 .btn-save-prog{padding:6px 13px;background:var(--pri);color:#fff;border-radius:6px;font-size:11px;font-weight:700;}
@@ -850,7 +854,7 @@ input[type=file]{display:none;}
 .login-card{background:#fff;border-radius:20px;padding:28px 22px;box-shadow:0 8px 32px rgba(107,178,196,.15);}
 .login-title{font-family:'Shippori Mincho',serif;font-size:16px;color:var(--ink);margin-bottom:20px;text-align:center;}
 .login-label{font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:5px;}
-.login-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;color:var(--ink);background:#f8fdfe;outline:none;margin-bottom:13px;letter-spacing:1px;}
+.login-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;color:var(--ink);background:#ffffff;outline:none;margin-bottom:13px;letter-spacing:1px;}
 .login-input:focus{border-color:var(--pri);background:#fff;}
 .login-btn{width:100%;padding:14px;background:var(--pri);color:#fff;border-radius:11px;font-size:15px;font-weight:700;margin-top:4px;}
 .login-btn:disabled{opacity:.6;}
@@ -1151,6 +1155,7 @@ input[type=file]{display:none;}
       <div class="atab" onclick="switchATab(this,'manual')">✏️ 代客</div>
       <div class="atab" onclick="switchATab(this,'members')">👤 會員</div>
       <div class="atab" onclick="switchATab(this,'bill')">🧾 帳單</div>
+      <div class="atab" onclick="switchATab(this,'summary')">📊 統計</div>
       <div class="atab" onclick="switchATab(this,'trip')">✈️ 行程</div>
     </div>
 
@@ -1199,10 +1204,16 @@ input[type=file]{display:none;}
           <option value="">全部分類</option>
         </select>
         <select class="fsel" id="order-filter-status" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
-          <option value="">全部狀態</option>
+          <option value="">全部採購狀態</option>
           <option value="pending">未採購</option>
           <option value="done">已採購</option>
           <option value="soldout">店舖售完</option>
+        </select>
+        <select class="fsel" id="order-filter-pay" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
+          <option value="">全部付款狀態</option>
+          <option value="未送付款單">📨 未送付款單</option>
+          <option value="未付款">⏳ 未付款</option>
+          <option value="已付款">✅ 已付款</option>
         </select>
         <select class="fsel" id="order-sort" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
           <option value="newest">最新優先</option>
@@ -1282,6 +1293,23 @@ input[type=file]{display:none;}
       <label class="flabel" style="margin-top:10px;">運費（NT$，選填）</label>
       <input class="finput" id="bill-shipping" type="number" placeholder="例：38" oninput="renderBillTotal()">
       <div id="bill-preview" style="margin-top:12px;"></div>
+      <div id="bill-image-area" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- 採購統計 -->
+    <div class="apanel" id="apanel-summary">
+      <div class="admin-sec-title" style="margin-bottom:12px;">📊 採購數量統計</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <select class="fsel" id="summary-filter-status" onchange="renderSummary()" style="flex:1;margin-bottom:0;">
+          <option value="all">全部商品</option>
+          <option value="exclude-soldout">排除店舖售完</option>
+          <option value="soldout">僅店舖售完</option>
+        </select>
+        <button onclick="toggleAllSummary()" style="padding:6px 12px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;color:#0369a1;font-size:12px;font-weight:700;">全選/取消</button>
+      </div>
+      <div id="summary-list" style="margin-bottom:12px;"></div>
+      <button onclick="generateSummaryImage()" style="width:100%;padding:11px;background:linear-gradient(135deg,#ffb7c5,#ffd6a5);color:#7c3a3a;border-radius:10px;font-size:13px;font-weight:800;border:none;margin-bottom:8px;">🖼 產生採購明細圖</button>
+      <div id="summary-image-area"></div>
     </div>
 
     <!-- 行程 & 進度 -->
@@ -1561,6 +1589,18 @@ function toggleFavDetail(){
   renderFavsGrid();
   showToast(isFav?'❤️ 已加入收藏':'已取消收藏');
 }
+function toggleFavTile(id, btn){
+  const favs = loadFavs();
+  const isFav = favs.some(f=>String(f)===String(id));
+  if(isFav){ saveFavs(favs.filter(f=>String(f)!==String(id))); }
+  else { favs.push(String(id)); saveFavs(favs); }
+  const newFav = !isFav;
+  btn.querySelector('svg').setAttribute('fill', newFav?'#f59e0b':'none');
+  btn.querySelector('svg').setAttribute('stroke', newFav?'#f59e0b':'#aaa');
+  renderFavsGrid();
+  showToast(newFav?'⭐ 已加入收藏':'已取消收藏');
+}
+
 function toggleFav(id,e){
   e.stopPropagation();
   const favs=loadFavs();
@@ -1638,12 +1678,18 @@ function renderGrid(){
   }
   grid.innerHTML=list.map(p=>{
     const img0=getImg0(p);
+    const isFav = loadFavs().includes(String(p.id));
     return`<div class="prod-tile" onclick="openDetail('${p.id}')">
       <div class="prod-tile-img">
         ${img0?`<img src="${img0}">`:''}
         <span style="${img0?'display:none;':''}">${p.emoji}</span>
+        ${p.low?`<div class="prod-tile-badge">限量</div>`:''}
+        <button class="tile-star-btn" onclick="event.stopPropagation();toggleFavTile('${p.id}',this)" title="收藏">
+          <svg viewBox="0 0 24 24" fill="${isFav?'#f59e0b':'none'}" stroke="${isFav?'#f59e0b':'#aaa'}" stroke-width="2">
+            <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
+          </svg>
+        </button>
       </div>
-      ${p.low?`<div class="prod-tile-badge">限量</div>`:''}
       <div class="prod-tile-body">
         <div class="prod-tile-name">${p.name}</div>
         <div class="prod-tile-price">NT$${p.price.toLocaleString()}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
@@ -1903,6 +1949,7 @@ function switchATab(el,id){
   if(id==='manual'){buildManualProdSelect();}
   if(id==='members'){}
   if(id==='bill'){buildBillMemberSel();previewBill();}
+  if(id==='summary') renderSummary();
   if(id==='trip'&&window.loadTrip)loadTrip();
 }
 function openAdmin(){
@@ -2343,15 +2390,17 @@ function updateSubCatSelect(){
 
 /* ── ADMIN ORDERS — FIX: merged with 整體進度, real stats ── */
 function computeOrderStats(){
-  /* 下單人數 = unique users */
   const users=new Set(ORDERS.map(o=>o.phone||o.user));
-  /* item-level counts */
   let purchased=0,unpurchased=0;
   ORDERS.forEach(o=>o.items.forEach(i=>{
     if(i.step===1||i.step===3||i.step===4) purchased++;
     else if(i.step===0) unpurchased++;
   }));
-  return{users:users.size,purchased,unpurchased};
+  // 未收金額：未送付款單 + 未付款 的訂單總計
+  const unpaidAmount = ORDERS
+    .filter(o=>!o.payStatus||o.payStatus==='未送付款單'||o.payStatus==='未付款')
+    .reduce((s,o)=>s+(o.total||0),0);
+  return{users:users.size,purchased,unpurchased,unpaidAmount};
 }
 async function buildBillMemberSel(){
   const sel = document.getElementById('bill-member-sel');
@@ -2451,6 +2500,7 @@ function renderBillTotal(){
       <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--pri);margin-top:6px;"><span>總計</span><span>NT$${total.toLocaleString()}</span></div>
     </div>
     <button onclick="copyBill()" class="btn-pri" style="width:100%;margin-bottom:8px;">📋 複製帳單文字</button>
+    <button onclick="generateBillImage()" style="width:100%;padding:11px;background:linear-gradient(135deg,#ffb7c5,#ffd6a5);color:#7c3a3a;border-radius:10px;font-size:13px;font-weight:800;border:none;margin-bottom:8px;">🖼 產生可愛明細圖</button>
   `;
 }
 
@@ -2484,6 +2534,391 @@ function copyBill(){
   } catch(e){ fallbackCopy(text); }
 }
 
+async function generateBillImage(){
+  const el = document.getElementById('bill-preview');
+  const memberId = el.dataset.memberId;
+  const memberName = el.dataset.memberName;
+  const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
+  const chks = document.querySelectorAll('.bill-item-chk');
+  const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
+  if(!selectedItems.length){ showToast('⚠ 請至少勾選一項商品'); return; }
+  showToast('產生圖片中…');
+
+  const subtotal = selectedItems.reduce((s,i)=>s+i.price,0);
+  const total = subtotal - discount + shipping;
+  const date = new Date().toLocaleDateString('zh-TW');
+
+  const W = 680;
+  const HEADER = 140;
+  const ITEM_H = 90;
+  const FOOTER = 160;
+  const H = HEADER + selectedItems.length * ITEM_H + FOOTER;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 背景
+  ctx.fillStyle = '#fff9f5';
+  ctx.fillRect(0,0,W,H);
+
+  // 裝飾圓點
+  const dots = [{x:30,y:30,r:25,c:'#ffb7c5'},{x:W-30,y:40,r:18,c:'#ffd6a5'},{x:50,y:H-40,r:20,c:'#c8e6c9'},{x:W-40,y:H-30,r:22,c:'#bbdefb'}];
+  dots.forEach(d=>{ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fillStyle=d.c+'80';ctx.fill();});
+
+  // Header 背景
+  const grad = ctx.createLinearGradient(0,0,W,HEADER);
+  grad.addColorStop(0,'#ffb7c5');
+  grad.addColorStop(1,'#ffd6a5');
+  ctx.fillStyle=grad;
+  roundRect(ctx,0,0,W,HEADER,0);
+
+  // Logo 文字
+  ctx.fillStyle='#fff';
+  ctx.font='bold 28px sans-serif';
+  ctx.fillText('ももコ・もも購',24,44);
+  ctx.font='15px sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.fillText('採購明細',26,70);
+  ctx.font='13px sans-serif';
+  ctx.fillText(date,26,92);
+
+  // 會員資訊
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.font='bold 15px sans-serif';
+  ctx.fillText(`👤 ${memberId}　${memberName}`,26,120);
+
+  // 分隔線
+  ctx.strokeStyle='#f0e0d6';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(20,HEADER+10);ctx.lineTo(W-20,HEADER+10);ctx.stroke();
+
+  // 商品列表
+  let imgs = [];
+  for(let i=0;i<selectedItems.length;i++){
+    const item = selectedItems[i];
+    const y = HEADER + 20 + i*ITEM_H;
+    // 底色交替
+    if(i%2===0){
+      ctx.fillStyle='rgba(255,183,197,0.08)';
+      ctx.fillRect(16,y-4,W-32,ITEM_H-8);
+    }
+    // 商品圖片
+    const img = item.imgs&&item.imgs[0];
+    if(img){
+      try{
+        const imgEl = await loadImg(img);
+        ctx.save();
+        ctx.beginPath();
+        roundRect(ctx,20,y,70,70,10);
+        ctx.clip();
+        ctx.drawImage(imgEl,20,y,70,70);
+        ctx.restore();
+      }catch(e){
+        ctx.fillStyle='#f5f5f5';
+        ctx.fillRect(20,y,70,70);
+        ctx.fillStyle='#bbb';ctx.font='28px sans-serif';
+        ctx.fillText(item.emoji||'🛍',30,y+48);
+      }
+    } else {
+      ctx.fillStyle='#fff0f3';
+      roundRect(ctx,20,y,70,70,10,true);
+      ctx.fillStyle='#555';ctx.font='30px sans-serif';
+      ctx.fillText(item.emoji||'🛍',28,y+48);
+    }
+    // 商品名稱
+    ctx.fillStyle='#3a2a2a';
+    ctx.font='bold 15px sans-serif';
+    ctx.fillText(truncate(item.name,22),102,y+22);
+    // 規格
+    if(item.specs){
+      ctx.fillStyle='#888';ctx.font='12px sans-serif';
+      ctx.fillText(item.specs,102,y+40);
+    }
+    // 備註
+    if(item.note){
+      ctx.fillStyle='#e07a5f';ctx.font='12px sans-serif';
+      ctx.fillText('📝 '+item.note,102,y+56);
+    }
+    // 數量
+    ctx.fillStyle='#aaa';ctx.font='12px sans-serif';
+    ctx.fillText('×'+item.qty,102,y+70);
+    // 價格
+    ctx.fillStyle='#e07a5f';ctx.font='bold 16px sans-serif';
+    const priceStr = 'NT$'+item.price.toLocaleString();
+    ctx.fillText(priceStr, W-20-ctx.measureText(priceStr).width, y+36);
+  }
+
+  // Footer 分隔線
+  const fy = HEADER + selectedItems.length*ITEM_H + 20;
+  ctx.strokeStyle='#f0c8b0';ctx.lineWidth=1.5;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.moveTo(20,fy);ctx.lineTo(W-20,fy);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 金額明細
+  let ry = fy+30;
+  const drawRow=(label,val,bold,color)=>{
+    ctx.fillStyle=color||'#666';ctx.font=(bold?'bold ':'')+' 14px sans-serif';
+    ctx.fillText(label,30,ry);
+    ctx.fillStyle=color||'#333';ctx.font=(bold?'bold ':'')+' 14px sans-serif';
+    const vs='NT$'+val.toLocaleString();
+    ctx.fillText(vs,W-30-ctx.measureText(vs).width,ry);
+    ry+=28;
+  };
+  drawRow('商品小計',subtotal);
+  if(discount) drawRow('活動折扣 −',discount,false,'#22c55e');
+  if(shipping) drawRow('運費 ＋',shipping);
+  ry+=4;
+  ctx.strokeStyle='#f0c8b0';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(30,ry-8);ctx.lineTo(W-30,ry-8);ctx.stroke();
+  drawRow('💰 總計',total,true,'#e07a5f');
+
+  // 底部提醒
+  ctx.fillStyle='#bbb';ctx.font='12px sans-serif';
+  ctx.fillText('請於 48 小時內完成匯款　謝謝您的支持 🙏',30,H-20);
+
+  // 顯示圖片
+  const imgUrl = canvas.toDataURL('image/png');
+  document.getElementById('bill-image-area').innerHTML = `
+    <div style="margin-top:8px;text-align:center;">
+      <img src="${imgUrl}" style="width:100%;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);">
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;">長按圖片可儲存或分享 📱</p>
+    </div>`;
+  showToast('🖼 明細圖已產生！');
+}
+
+function loadImg(url){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>res(img);
+    img.onerror=()=>rej();
+    img.src=url;
+  });
+}
+
+function roundRect(ctx,x,y,w,h,r,fill){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+  if(fill)ctx.fill();
+}
+
+function truncate(str,max){
+  return str.length>max?str.slice(0,max)+'…':str;
+}
+
+function toggleAllSummary(){
+  const chks = document.querySelectorAll('.summary-chk');
+  const allChecked = [...chks].every(c=>c.checked);
+  chks.forEach(c=>c.checked=!allChecked);
+}
+
+function getSummaryItems(){
+  const statusFilter = document.getElementById('summary-filter-status')?.value||'all';
+  const map = {};
+  ORDERS.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      if(statusFilter==='exclude-soldout' && item.step===2) return;
+      if(statusFilter==='soldout' && item.step!==2) return;
+      const key = item.name + '||' + (item.specs||'');
+      if(!map[key]){
+        const prod = PRODS.find(p=>String(p.id)===String(item.prodId));
+        map[key] = { name:item.name, specs:item.specs||'', qty:0, price:item.price/item.qty, imgs:item.imgs, emoji:item.emoji, notes:[], prodId:item.prodId, cat:prod?.cat||'', subcat:prod?.subcat||'' };
+      }
+      map[key].qty += item.qty;
+      if(item.note && !map[key].notes.includes(item.note)) map[key].notes.push(item.note);
+    });
+  });
+  return Object.values(map).sort((a,b)=>{
+    // 先按主分類排
+    const catA = CATS.findIndex(c=>c.id===a.cat);
+    const catB = CATS.findIndex(c=>c.id===b.cat);
+    if(catA!==catB) return catA-catB;
+    // 再按子分類排
+    const subA = a.subcat||'';
+    const subB = b.subcat||'';
+    if(subA!==subB) return subA.localeCompare(subB);
+    // 最後按數量排
+    return b.qty-a.qty;
+  });
+}
+
+function renderSummary(){
+  const items = getSummaryItems();
+  const el = document.getElementById('summary-list');
+  if(!items.length){ el.innerHTML='<p style="color:var(--muted);font-size:13px;">沒有訂單資料</p>'; return; }
+  let html = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">共 <strong style="color:var(--pri);">${items.length}</strong> 樣商品　總計 <strong style="color:var(--pri);">${items.reduce((s,i)=>s+i.qty,0)}</strong> 件</div>`;
+  let lastCat = null; let lastSubcat = null;
+  items.forEach(item=>{
+    const catObj = CATS.find(c=>c.id===item.cat);
+    const catLabel = catObj ? catObj.icon+' '+catObj.label : (item.cat||'其他');
+    const subcatLabel = item.subcat ? CATS.flatMap(c=>c.subs||[]).find(s=>s.id===item.subcat)?.label||item.subcat : '';
+    if(item.cat !== lastCat){
+      html += `<div style="margin:12px 0 4px;padding:4px 10px;background:var(--pri);color:#fff;border-radius:8px;font-size:12px;font-weight:700;">${catLabel}</div>`;
+      lastCat = item.cat; lastSubcat = null;
+    }
+    if(subcatLabel && item.subcat !== lastSubcat){
+      html += `<div style="margin:6px 0 2px 8px;font-size:11px;color:var(--muted);font-weight:700;">— ${subcatLabel}</div>`;
+      lastSubcat = item.subcat;
+    }
+    const img = item.imgs&&item.imgs[0];
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+      <input type="checkbox" class="summary-chk" checked style="width:18px;height:18px;flex-shrink:0;">
+      <div style="width:50px;height:50px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
+        ${img?`<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`:`<span style="font-size:24px;">${item.emoji||'🛍'}</span>`}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:13px;font-weight:700;">${item.name}</div>
+        ${item.specs?`<div style="font-size:11px;color:var(--muted);">${item.specs}</div>`:''}
+        ${item.notes.length?`<div style="font-size:11px;color:#e07a5f;">📝 ${item.notes.join('、')}</div>`:''}
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:18px;font-weight:800;color:var(--pri);">×${item.qty}</div>
+        <div style="font-size:11px;color:var(--muted);">NT$${item.price.toLocaleString()}/件</div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function generateSummaryImage(){
+  const items = getSummaryItems();
+  if(!items.length){ showToast('⚠ 沒有資料'); return; }
+  showToast('產生圖片中…');
+
+  // 先計算有多少分類標題
+  let catHeaders = 0;
+  let lastCatImg = null;
+  items.forEach(item=>{ if(item.cat!==lastCatImg){ catHeaders++; lastCatImg=item.cat; } });
+
+  const W = 680;
+  const HEADER = 110;
+  const ITEM_H = 100;
+  const CAT_H = 36;
+  const FOOTER = 60;
+  const H = HEADER + items.length * ITEM_H + catHeaders * CAT_H + FOOTER;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // 背景
+  ctx.fillStyle = '#fff9f5';
+  ctx.fillRect(0,0,W,H);
+
+  // Header 漸層
+  const grad = ctx.createLinearGradient(0,0,W,HEADER);
+  grad.addColorStop(0,'#ffb7c5');
+  grad.addColorStop(1,'#ffd6a5');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,HEADER);
+
+  ctx.fillStyle='#fff';
+  ctx.font='bold 26px sans-serif';
+  ctx.fillText('ももコ・もも購',24,42);
+  ctx.font='14px sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.fillText('📊 採購數量明細',26,66);
+  ctx.fillText(new Date().toLocaleDateString('zh-TW'),26,88);
+
+  // 商品列表
+  let curY = HEADER + 10;
+  let lastCatDraw = null;
+  for(let i=0;i<items.length;i++){
+    const item = items[i];
+    const catObj = CATS.find(c=>c.id===item.cat);
+    const catLabel = catObj ? catObj.icon+' '+catObj.label : (item.cat||'其他');
+    // 分類標題
+    if(item.cat !== lastCatDraw){
+      ctx.fillStyle='#ffb7c5';
+      ctx.fillRect(16, curY, W-32, CAT_H-4);
+      ctx.fillStyle='#7c3a3a';ctx.font='bold 14px sans-serif';
+      ctx.fillText(catLabel, 28, curY+22);
+      curY += CAT_H;
+      lastCatDraw = item.cat;
+    }
+    const y = curY;
+
+    if(i%2===0){
+      ctx.fillStyle='rgba(255,183,197,0.08)';
+      ctx.fillRect(0,y-4,W,ITEM_H-4);
+    }
+
+    // 商品圖片
+    const imgUrl = item.imgs&&item.imgs[0];
+    if(imgUrl){
+      try{
+        const imgEl = await loadImg(imgUrl);
+        ctx.save();
+        ctx.beginPath();
+        roundRect(ctx,16,y,76,76,10);
+        ctx.clip();
+        ctx.drawImage(imgEl,16,y,76,76);
+        ctx.restore();
+      }catch(e){
+        ctx.fillStyle='#f0f0f0';
+        roundRect(ctx,16,y,76,76,10,true);
+        ctx.font='32px sans-serif';ctx.fillStyle='#ccc';
+        ctx.fillText(item.emoji||'🛍',22,y+54);
+      }
+    } else {
+      ctx.fillStyle='#fff0f3';
+      roundRect(ctx,16,y,76,76,10,true);
+      ctx.font='34px sans-serif';
+      ctx.fillText(item.emoji||'🛍',22,y+54);
+    }
+
+    // 商品名稱
+    ctx.fillStyle='#3a2a2a';ctx.font='bold 16px sans-serif';
+    ctx.fillText(truncate(item.name,20),106,y+24);
+
+    // 規格
+    if(item.specs){
+      ctx.fillStyle='#888';ctx.font='13px sans-serif';
+      ctx.fillText(item.specs,106,y+44);
+    }
+
+    // 備註
+    if(item.notes.length){
+      ctx.fillStyle='#e07a5f';ctx.font='12px sans-serif';
+      ctx.fillText('📝 '+item.notes.join('、'),106,y+64);
+    }
+
+    // 數量（右側大字）
+    ctx.fillStyle='#ffb7c5';ctx.font='bold 36px sans-serif';
+    const qStr = '×'+item.qty;
+    ctx.fillText(qStr, W-20-ctx.measureText(qStr).width, y+50);
+
+    // 單價
+    ctx.fillStyle='#aaa';ctx.font='12px sans-serif';
+    const pStr='NT$'+item.price.toLocaleString()+'/件';
+    ctx.fillText(pStr, W-20-ctx.measureText(pStr).width, y+70);
+    curY += ITEM_H;
+  }
+
+  // 總件數
+  const totalQty = items.reduce((s,i)=>s+i.qty,0);
+  ctx.fillStyle='#f5e6e0';
+  ctx.fillRect(0,curY,W,FOOTER);
+  ctx.fillStyle='#e07a5f';ctx.font='bold 16px sans-serif';
+  ctx.fillText(`共 ${items.length} 款商品　總計 ${totalQty} 件`,24,curY+36);
+
+  const imgUrl = canvas.toDataURL('image/png');
+  document.getElementById('summary-image-area').innerHTML=`
+    <div style="margin-top:8px;text-align:center;">
+      <img src="${imgUrl}" style="width:100%;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);">
+      <a href="${imgUrl}" download="momoko_採購明細_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.png" style="display:block;margin-top:8px;padding:10px;background:var(--pri);color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">⬇️ 下載圖片</a>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;">手機長按圖片可儲存或分享 📱</p>
+    </div>`;
+  showToast('🖼 明細圖已產生！');
+}
+
 function buildOrderCatFilter(){
   const sel = document.getElementById('order-filter-cat');
   if(!sel) return;
@@ -2496,7 +2931,8 @@ function renderAdminOrders(){
   document.getElementById('order-overview-stats').innerHTML=`
     <div class="astat"><div class="astat-num">${stats.users}</div><div class="astat-label">下單人數</div></div>
     <div class="astat"><div class="astat-num" style="color:var(--grn);">${stats.purchased}</div><div class="astat-label">已採買件數</div></div>
-    <div class="astat"><div class="astat-num" style="color:var(--ora);">${stats.unpurchased}</div><div class="astat-label">未採買件數</div></div>`;
+    <div class="astat"><div class="astat-num" style="color:var(--ora);">${stats.unpurchased}</div><div class="astat-label">未採買件數</div></div>
+    <div class="astat"><div class="astat-num" style="color:#ef4444;font-size:14px;">NT$${stats.unpaidAmount.toLocaleString()}</div><div class="astat-label">未收金額</div></div>`;
 
   const filterCat = document.getElementById('order-filter-cat')?.value || '';
   const filterMember = document.getElementById('order-filter-member')?.value.trim().toLowerCase() || '';
@@ -2521,6 +2957,9 @@ function renderAdminOrders(){
   } else if(filterStatus==='soldout'){
     orders = orders.filter(o=>(o.items||[]).some(i=>i.step===2));
   }
+
+  const filterPay = document.getElementById('order-filter-pay')?.value || '';
+  if(filterPay) orders = orders.filter(o=>(o.payStatus||'未送付款單')===filterPay);
 
   const sort = document.getElementById('order-sort')?.value || 'newest';
   if(sort==='newest') orders.sort((a,b)=>(b.createdAt?.toMillis?.()|| 0)-(a.createdAt?.toMillis?.()||0));
