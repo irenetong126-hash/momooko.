@@ -8,6 +8,7 @@
 <link rel="apple-touch-icon" href="https://github.com/irenetong126-hash/test123/blob/main/momoko_logo_%E9%80%8F%E6%98%8E.jpg?raw=true">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Shippori+Mincho:wght@400;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   window.addEventListener('load', function() {
     emailjs.init({publicKey: 'WL1Q2JRdRJu1OgONq'});
@@ -1368,6 +1369,7 @@ input[type=file]{display:none;}
       </div>
       <div style="text-align:right;margin-bottom:6px;">
         <button onclick="document.getElementById('fix-archive-bar').style.display='flex'" style="font-size:11px;color:#888;background:none;border:none;text-decoration:underline;cursor:pointer;">🔧 修復未命名封存</button>
+        <button onclick="exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -2653,14 +2655,14 @@ function updateSubCatSelect(){
 
 /* ── ADMIN ORDERS — FIX: merged with 整體進度, real stats ── */
 function computeOrderStats(){
-  const users=new Set(ORDERS.map(o=>o.phone||o.user));
+  const activeOrders = ORDERS.filter(o=>!o.archived);
+  const users=new Set(activeOrders.map(o=>o.phone||o.user));
   let purchased=0,unpurchased=0;
-  ORDERS.forEach(o=>o.items.forEach(i=>{
+  activeOrders.forEach(o=>o.items.forEach(i=>{
     if(i.step===1||i.step===3||i.step===4) purchased++;
     else if(i.step===0) unpurchased++;
   }));
-  // 未收金額：未送付款單 + 未付款 的訂單總計
-  const unpaidAmount = ORDERS
+  const unpaidAmount = activeOrders
     .filter(o=>!o.payStatus||o.payStatus==='未送付款單'||o.payStatus==='未付款')
     .reduce((s,o)=>s+(o.total||0),0);
   return{users:users.size,purchased,unpurchased,unpaidAmount};
@@ -3224,7 +3226,28 @@ function buildOrderCatFilter(){
   sel.innerHTML = allCats.map(c=>`<option value="${c.id}">${c.id?c.icon+' ':''} ${c.label}</option>`).join('');
 }
 
-function renderAdminOrders(){
+async function markAllShipped(memberId, archiveName){
+  if(!confirm(`確定把「${memberId}」的所有訂單商品標記為已寄出？（店舖售完不受影響）`)) return;
+  showToast('標記中…');
+  const { doc, updateDoc } = window._fbFns;
+  const memberOrders = ORDERS.filter(o=>o.archived && o.memberId===memberId && o.archiveName===archiveName);
+  for(const o of memberOrders){
+    const updatedItems = (o.items||[]).map(item=>({
+      ...item,
+      step: item.step===2 ? 2 : 3  // 售完(2)不動，其他改為已寄出(3)
+    }));
+    try{
+      await updateDoc(doc(window._db,'momoko_orders',o.fbId),{ items: updatedItems });
+      const i = ORDERS.findIndex(x=>x.fbId===o.fbId);
+      if(i!==-1) ORDERS[i].items = updatedItems;
+    }catch(e){ console.error(e); }
+  }
+  saveOrders(ORDERS);
+  renderAdminOrders();
+  showToast(`✅ 已標記完成！`);
+}
+
+async function renderAdminOrders(){
   const stats=computeOrderStats();
   document.getElementById('order-overview-stats').innerHTML=`
     <div class="astat"><div class="astat-num">${stats.users}</div><div class="astat-label">下單人數</div></div>
@@ -3275,35 +3298,68 @@ function renderAdminOrders(){
     const groups = {};
     ORDERS.filter(o=>o.archived).forEach(o=>{
       const key = o.archiveName||'未命名連線';
-      if(!groups[key]) groups[key]=[];
-      groups[key].push(o);
+      if(!groups[key]) groups[key]={};
+      const mid = o.memberId||'未知';
+      if(!groups[key][mid]) groups[key][mid]={orders:[], memberName:o.memberName||mid, memberId:mid, lineNick:o.lineNick||''};
+      if(!groups[key][mid].lineNick && o.lineNick) groups[key][mid].lineNick=o.lineNick;
+      groups[key][mid].orders.push(o);
     });
+    // 從 members 集合補齊 lineNick
+    const allMemberIds = [...new Set(ORDERS.filter(o=>o.archived).map(o=>o.memberId).filter(Boolean))];
+    const memberDataMap = {};
+    await Promise.all(allMemberIds.map(async mid=>{
+      try{
+        const snap = await window._fbFns.getDoc(window._fbFns.doc(window._db,'members',mid));
+        if(snap.exists()) memberDataMap[mid] = snap.data();
+      }catch(e){}
+    }));
+    Object.values(groups).forEach(memberMap=>{
+      Object.values(memberMap).forEach(m=>{
+        const data = memberDataMap[m.memberId];
+        if(data){
+          if(!m.lineNick && data.lineNick) m.lineNick = data.lineNick;
+          if(!m.memberName || m.memberName===m.memberId) m.memberName = data.name||m.memberId;
+        }
+      });
+    });
+
+    // 採購狀態篩選
+    const filterStatus = document.getElementById('order-filter-status')?.value||'';
+    const filterPay = document.getElementById('order-filter-pay')?.value||'';
+
     let html='';
-    Object.entries(groups).forEach(([name, gOrders])=>{
-      // 依會員編號排序
-      gOrders.sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')));
-      // 篩選
-      const filtered = filterMember
-        ? gOrders.filter(o=>(o.memberId||'').toLowerCase().includes(filterMember)||(o.memberName||'').toLowerCase().includes(filterMember)||(o.items||[]).some(i=>(i.name||'').toLowerCase().includes(filterMember)))
-        : gOrders;
-      html+=`<div style="margin:12px 0 6px;padding:6px 12px;background:#faf5ff;border-radius:8px;font-size:12px;font-weight:700;color:#7c3aed;">📦 ${name}（${filtered.length} 筆）</div>`;
-      filtered.forEach(o=>{
-        const realOi = ORDERS.indexOf(o);
-        const mx = orderMaxStep(o);
-        const displayName = o.memberName||o.memberId||'未知';
-        const displayId = o.memberId||'';
-        const total = o.total||0;
+    Object.entries(groups).forEach(([name, memberMap])=>{
+      const members = Object.values(memberMap).sort((a,b)=>a.memberId.localeCompare(b.memberId));
+      const filtered = members.filter(m=>{
+        // 關鍵字篩選
+        if(filterMember && !m.memberId.toLowerCase().includes(filterMember) && !m.memberName.toLowerCase().includes(filterMember) && !m.orders.some(o=>(o.items||[]).some(i=>(i.name||'').toLowerCase().includes(filterMember)))) return false;
+        // 採購狀態篩選
+        if(filterStatus==='pending') return m.orders.some(o=>(o.items||[]).some(i=>!i.step||i.step===0));
+        if(filterStatus==='done') return m.orders.some(o=>(o.items||[]).every(i=>i.step&&i.step>0));
+        if(filterStatus==='soldout') return m.orders.some(o=>(o.items||[]).some(i=>i.step===2));
+        // 付款篩選
+        if(filterPay) return m.orders.some(o=>(o.payStatus||'未送付款單')===filterPay);
+        return true;
+      });
+      html+=`<div style="margin:12px 0 6px;padding:6px 12px;background:#faf5ff;border-radius:8px;font-size:12px;font-weight:700;color:#7c3aed;">📦 ${name}（${filtered.length} 位會員）</div>`;
+      filtered.forEach((m, mi)=>{
+        const totalAll = m.orders.reduce((s,o)=>s+(o.total||0),0);
+        const mx = Math.max(...m.orders.map(o=>orderMaxStep(o)));
+        const cardId = `arc-card-${Date.now()}-${mi}`;
         html+=`<div style="border:1px solid #ebebeb;border-radius:10px;margin-bottom:6px;overflow:hidden;">
-          <div onclick="toggleArchiveCard('arc-${o.fbId}')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#fff;">
+          <div onclick="var e=document.getElementById('${cardId}');var a=document.getElementById('arw-${cardId}');if(e){var open=e.style.display!=='none';e.style.display=open?'none':'block';if(a)a.textContent=open?'›':'⌄';}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:#fff;">
             <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;">${displayId}　${displayName}</div>
-              <div style="font-size:11px;color:var(--muted);">${o.date||''}｜NT$${total.toLocaleString()}｜${o.lineNick||''}</div>
+              <div style="font-size:13px;font-weight:700;">${m.memberId}　${m.memberName}　${m.lineNick||''}</div>
+              <div style="font-size:11px;color:var(--muted);">${m.orders.length} 筆訂單｜NT$${totalAll.toLocaleString()}</div>
             </div>
             <span class="ostatus ${stCls(mx)}" style="font-size:10px;padding:3px 8px;">${stText(mx)}</span>
-            <span style="color:#bbb;font-size:14px;" id="arc-arrow-${o.fbId}">›</span>
+            <span style="color:#bbb;font-size:14px;" id="arw-${cardId}">›</span>
           </div>
-          <div id="arc-${o.fbId}" style="display:none;border-top:1px solid #f0f0f0;">
-            ${renderOrderCard(o, realOi)}
+          <div id="${cardId}" style="display:none;border-top:1px solid #f0f0f0;">
+            <div style="padding:8px 14px;background:#f0fdf4;border-bottom:1px solid #dcfce7;">
+              <button onclick="markAllShipped('${m.memberId}','${name.replace(/'/g,"\\'")}')" style="width:100%;padding:8px;background:#22c55e;color:#fff;border-radius:8px;font-size:12px;font-weight:700;border:none;">📦 一鍵標記全部已寄出（不含售完）</button>
+            </div>
+            ${m.orders.map(o=>renderOrderCard(o, ORDERS.indexOf(o))).join('')}
           </div>
         </div>`;
       });
@@ -3311,6 +3367,50 @@ function renderAdminOrders(){
     el.innerHTML=html||'<div class="empty"><div class="empty-icon">📭</div><p>沒有封存訂單</p></div>';
     return;
   }
+async function exportArchivedToExcel(){
+  const archived = ORDERS.filter(o=>o.archived);
+  if(!archived.length){ showToast('⚠ 沒有封存訂單'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // 依連線名稱分組，每個連線一個工作表
+  const groups = {};
+  archived.forEach(o=>{
+    const key = o.archiveName||'未命名連線';
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(o);
+  });
+
+  Object.entries(groups).forEach(([name, orders])=>{
+    const rows = [['會員編號','姓名','LINE暱稱','電話','商品名稱','規格','數量','金額','付款狀態','下單日期']];
+    // 依會員編號排序
+    orders.sort((a,b)=>String(a.memberId||'').localeCompare(String(b.memberId||'')));
+    orders.forEach(o=>{
+      (o.items||[]).forEach(item=>{
+        rows.push([
+          o.memberId||'', o.memberName||'', o.lineNick||'', o.phone||'',
+          item.name, item.specs||'', item.qty, item.price,
+          o.payStatus||'未送付款單', o.date||''
+        ]);
+      });
+    });
+    // 加總計行
+    const totalAmt = orders.reduce((s,o)=>s+(o.total||0),0);
+    rows.push(['','','','','','','','','','']);
+    rows.push(['📊 總計','','','','','','',totalAmt,'','']);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    // 調整欄寬
+    ws['!cols'] = [8,10,12,12,20,12,6,8,10,10].map(w=>({wch:w}));
+    const sheetName = name.slice(0,31); // Excel 工作表名稱最長31字元
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  });
+
+  const date = new Date().toLocaleDateString('zh-TW').replace(/\//g,'-');
+  XLSX.writeFile(wb, `ももコ封存訂單_${date}.xlsx`);
+  showToast('✅ Excel 已下載！');
+}
+
 async function fixArchiveName(){
   const name = document.getElementById('fix-archive-name-input')?.value.trim();
   if(!name){ showToast('⚠ 請輸入名稱'); return; }
@@ -3333,9 +3433,8 @@ async function fixArchiveName(){
 
 function toggleArchiveCard(id){
   const el = document.getElementById(id);
-  const fbId = id.replace('arc-','');
-  const arrow = document.getElementById('arc-arrow-'+fbId);
   if(!el) return;
+  const arrow = document.getElementById('arc-arrow-'+id);
   const isOpen = el.style.display!=='none';
   el.style.display = isOpen?'none':'block';
   if(arrow) arrow.textContent = isOpen?'›':'⌄';
