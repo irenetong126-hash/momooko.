@@ -231,9 +231,33 @@ window.saveProdFB = async function(prod, fbId) {
   }
 };
 
-// 刪除商品
+// 下架商品（不刪除，改為 archived:true）
 window.delProdFB = async function(fbId) {
-  await deleteDoc(doc(db,'momoko_products',String(fbId)));
+  await updateDoc(doc(db,'momoko_products',String(fbId)), { archived: true });
+};
+
+// 永久刪除商品（只限已下架）
+window.permDeleteProd = async function(id){
+  const p = PRODS.find(x=>String(x.id)===String(id));
+  if(!confirm(`永久刪除「${p?.name}」？此操作無法復原！`)) return;
+  try {
+    await deleteDoc(doc(db,'momoko_products',String(id)));
+    PRODS = PRODS.filter(x=>String(x.id)!==String(id));
+    saveP(PRODS); renderAList(); renderAStatsProds();
+    showToast('🗑 已永久刪除');
+  } catch(e){ showToast('❌ 刪除失敗：'+e.message); }
+};
+
+// 重新上架商品
+window.unarchiveProd = async function(id) {
+  const i = PRODS.findIndex(p=>String(p.id)===String(id));
+  if(i===-1) return;
+  try {
+    await updateDoc(doc(db,'momoko_products',String(id)), { archived: false });
+    PRODS[i].archived = false;
+    saveP(PRODS); renderAList(); renderGrid();
+    showToast('✅ 已重新上架！');
+  } catch(e){ showToast('❌ 失敗：'+e.message); }
 };
 
 // 刪除訂單
@@ -415,7 +439,7 @@ window.loadProdsAndCats = async function() {
   --grn:#2d7a4f;--grn-s:#edf7f1;
   /* FIX: bottom nav taller so icons don't get cut */
   --r:14px;--nav:56px;--tab:72px;
-  --sb:env(safe-area-inset-bottom,0px);
+  --sb:max(env(safe-area-inset-bottom,0px),20px);
   --topbar-offset:80px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -441,10 +465,10 @@ img{display:block;}
 .nbadge{position:absolute;top:5px;right:calc(50% - 17px);background:var(--ora);color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 4px;min-width:14px;text-align:center;}
 
 /* PAGES */
-.page{display:none;padding-top:var(--topbar-offset);padding-bottom:calc(var(--tab)+var(--sb)+280px);min-height:100dvh;}
+.page{display:none;padding-top:var(--topbar-offset);padding-bottom:calc(var(--tab)+var(--sb)+320px);min-height:100dvh;}
 .page.active{display:block;}
 #page-shop{padding-top:var(--topbar-offset);}
-#page-member{padding-top:0;}
+#page-member{padding-top:0;padding-bottom:calc(var(--tab)+var(--sb)+40px);}
 
 /* SECTION HEADER */
 .sec-hd{font-family:'Shippori Mincho',serif;font-size:16px;color:var(--ink);padding:8px 14px 10px;display:flex;align-items:center;justify-content:space-between;}
@@ -488,7 +512,7 @@ img{display:block;}
 
 /* SHOP */
 .shop-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 10px;position:sticky;top:var(--nav);z-index:90;background:var(--bg);}
-.shop-topbar-left{font-size:16px;font-weight:700;color:var(--pri-d);font-family:'Shippori Mincho',serif;background:var(--pri-s);padding:5px 16px;border-radius:99px;display:inline-block;}
+.shop-topbar-left{font-size:16px;font-weight:400;color:#888;font-family:inherit;display:inline-block;}
 .burger-btn{display:flex;flex-direction:column;gap:4px;padding:6px;cursor:pointer;}
 .burger-btn span{width:20px;height:2px;background:var(--ink);border-radius:2px;display:block;}
 .prod-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:0 24px;}
@@ -667,7 +691,7 @@ img{display:block;}
 /* SHEETS */
 .sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1200;align-items:flex-end;justify-content:center;}
 .sheet-overlay.show{display:flex;}
-.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:480px;padding:0 0 calc(24px + var(--sb));max-height:92dvh;overflow-y:auto;}
+.sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:480px;padding:0 0 calc(40px + var(--sb));max-height:92dvh;overflow-y:auto;}
 .sheet-overlay.show .sheet{animation:su .28s ease;}
 @keyframes su{from{transform:translateY(40px);opacity:0;}to{transform:translateY(0);opacity:1;}}
 .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:13px auto 0;}
@@ -1015,7 +1039,7 @@ input[type=file]{display:none;}
   <div class="mem-menu">
     <div class="menu-card">
       <div class="menu-item" onclick="goPage('orders')"><div class="menu-icon" style="background:#fef3c7;">📦</div><div style="flex:1;"><div class="menu-title">我的訂單</div><div class="menu-desc">查看所有喊單記錄</div></div><span class="menu-arrow">›</span></div>
-      <div class="menu-item" onclick="openFavsPage()"><div class="menu-icon" style="background:#fee2e2;">❤️</div><div style="flex:1;"><div class="menu-title">收藏商品</div><div class="menu-desc">我的常買清單</div></div><span class="menu-arrow">›</span></div>
+      <div class="menu-item" onclick="openFavsPage()"><div class="menu-icon" style="background:#fef9c3;">⭐</div><div style="flex:1;"><div class="menu-title">收藏商品</div><div class="menu-desc">我的常買清單</div></div><span class="menu-arrow">›</span></div>
       <div class="menu-item" id="logout-btn" onclick="doLogout()"><div class="menu-icon" style="background:#fef2f2;">🚪</div><div style="flex:1;"><div class="menu-title">登出</div></div><span class="menu-arrow">›</span></div>
       <div class="menu-item" id="login-btn-mem" style="display:none;" onclick="showLoginScreen()"><div class="menu-icon" style="background:#eaf5f8;">🔑</div><div style="flex:1;"><div class="menu-title">登入會員</div><div class="menu-desc">登入後即可喊單</div></div><span class="menu-arrow">›</span></div>
     </div>
@@ -1162,11 +1186,27 @@ input[type=file]{display:none;}
     <!-- 商品 -->
     <div class="apanel active" id="apanel-prods">
       <div class="admin-stats" id="admin-stats-prods"></div>
-      <div class="admin-sec-hd"><div class="admin-sec-title">商品列表</div><button class="btn-add" onclick="openProdForm(null)">＋ 新增</button></div>
+      <div class="admin-sec-hd"><div class="admin-sec-title">商品列表</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="toggleBatchMode()" id="batch-mode-btn" style="font-size:11px;padding:5px 10px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:8px;color:#ea580c;font-weight:700;">批次下架</button>
+          <button class="btn-add" onclick="openProdForm(null)">＋ 新增</button>
+        </div>
+      </div>
+      <div id="batch-bar" style="display:none;padding:8px 0;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button onclick="selectAllBatch()" style="padding:5px 10px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:8px;color:#0369a1;font-size:12px;font-weight:700;">全選</button>
+        <span id="batch-count" style="font-size:12px;color:var(--muted);">已選 0 項</span>
+        <button onclick="batchArchive()" style="padding:5px 12px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;color:#ef4444;font-size:12px;font-weight:700;">一次下架</button>
+        <button onclick="cancelBatchMode()" style="padding:5px 12px;background:#f5f5f5;border:1.5px solid #e0e0e0;border-radius:8px;color:#888;font-size:12px;">取消</button>
+      </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;">
         <input class="finput" id="prod-filter-kw" placeholder="🔍 搜尋商品名稱…" oninput="renderAList()" style="flex:1;margin-bottom:0;">
         <select class="fsel" id="prod-filter-cat" onchange="renderAList()" style="flex:1;margin-bottom:0;">
           <option value="">全部分類</option>
+        </select>
+        <select class="fsel" id="prod-filter-archived" onchange="renderAList()" style="flex:1;margin-bottom:0;">
+          <option value="active">上架中</option>
+          <option value="archived">已下架</option>
+          <option value="all">全部</option>
         </select>
       </div>
       <div id="admin-list"></div>
@@ -1403,7 +1443,7 @@ input[type=file]{display:none;}
 <div class="fullpage" id="favs-page">
   <div class="back-bar">
     <button class="back-btn" onclick="closeFavsPage()">←</button>
-    <div class="back-bar-title">❤️ 收藏商品</div>
+    <div class="back-bar-title">⭐ 收藏商品</div>
   </div>
   <div style="padding:14px;">
     <div class="prod-grid" id="favs-grid" style="padding:0;"></div>
@@ -1584,10 +1624,10 @@ function toggleFavDetail(){
   saveFavs(favs);
   const isFav=favs.findIndex(f=>String(f)===id)!==-1;
   document.getElementById('detail-fav-btn').innerHTML=isFav
-    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
-    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`
+    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
   renderFavsGrid();
-  showToast(isFav?'❤️ 已加入收藏':'已取消收藏');
+  showToast(isFav?'⭐ 已加入收藏':'已取消收藏');
 }
 function toggleFavTile(id, btn){
   const favs = loadFavs();
@@ -1607,7 +1647,7 @@ function toggleFav(id,e){
   const isFav=favs.some(f=>String(f)===String(id));
   if(isFav){saveFavs(favs.filter(f=>String(f)!==String(id)));}else{favs.push(String(id));saveFavs(favs);}
   renderFavsGrid();
-  showToast(isFav?'已取消收藏':'❤️ 已加入收藏');
+  showToast(isFav?'已取消收藏':'⭐ 已加入收藏');
 }
 function openFavsPage(){
   renderFavsGrid();
@@ -1661,17 +1701,15 @@ function orderMatchesFilter(o,filter){
 function getImg0(p){return p.imgs&&p.imgs[0]?p.imgs[0]:'';}
 function renderGrid(){
   const grid=document.getElementById('prod-grid');
-  const list=curCat==='all'?PRODS:PRODS.filter(p=>{
-    // 先檢查是不是子分類 ID
+  const list=(curCat==='all'?PRODS:PRODS.filter(p=>{
     for(const c of CATS){
       if(c.subs){
         const sub = c.subs.find(s=>s.id===curCat);
         if(sub) return p.subcat===curCat;
       }
     }
-    // 母分類
     return p.cat===curCat;
-  });
+  })).filter(p=>!p.archived);
   if(!list.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🛍</div><p>此分類目前沒有商品</p></div>';
     return;
@@ -1703,7 +1741,7 @@ function renderGrid(){
 function buildDrawer(){
   const allCats=[{id:'all',icon:'🗂',label:'全部商品'},...CATS];
   document.getElementById('drawer-body').innerHTML=allCats.map(c=>{
-    const cnt=c.id==='all'?PRODS.length:PRODS.filter(p=>p.cat===c.id).length;
+    const cnt=c.id==='all'?PRODS.filter(p=>!p.archived).length:PRODS.filter(p=>p.cat===c.id&&!p.archived).length;
     const hasSubs = c.subs && c.subs.length > 0;
     const subsHtml = hasSubs ? `
       <div class="cat-subs" id="subs-${c.id}">
@@ -1763,8 +1801,8 @@ function openDetail(id){
   // 愛心按鈕
   const isFav=loadFavs().includes(String(id));
   document.getElementById('detail-fav-btn').innerHTML=isFav
-    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`
-    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+    ?`<svg width="20" height="20" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.5"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`
+    :`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
   // 規格
   const specsEl = document.getElementById('detail-specs');
   let specsHtml = '';
@@ -1971,6 +2009,48 @@ function renderAStatsProds(){
     <div class="astat"><div class="astat-num">${ORDERS.length}</div><div class="astat-label">訂單總數</div></div>
     <div class="astat"><div class="astat-num">${CATS.length}</div><div class="astat-label">分類數</div></div>`;
 }
+let _batchMode = false;
+function toggleBatchMode(){
+  _batchMode = true;
+  document.getElementById('batch-bar').style.display='flex';
+  document.getElementById('batch-mode-btn').style.display='none';
+  renderAList();
+}
+function cancelBatchMode(){
+  _batchMode = false;
+  document.getElementById('batch-bar').style.display='none';
+  document.getElementById('batch-mode-btn').style.display='';
+  renderAList();
+}
+function updateBatchCount(){
+  const n = document.querySelectorAll('.batch-chk:checked').length;
+  document.getElementById('batch-count').textContent = `已選 ${n} 項`;
+}
+function selectAllBatch(){
+  const chks = document.querySelectorAll('.batch-chk');
+  const allChecked = [...chks].every(c=>c.checked);
+  chks.forEach(c=>c.checked=!allChecked);
+  updateBatchCount();
+}
+async function batchArchive(){
+  const chks = [...document.querySelectorAll('.batch-chk:checked')];
+  if(!chks.length){ showToast('⚠ 請先勾選商品'); return; }
+  if(!confirm(`確定下架已勾選的 ${chks.length} 個商品？`)) return;
+  const { doc, updateDoc } = window._fbFns;
+  for(const chk of chks){
+    const id = chk.dataset.id;
+    const i = PRODS.findIndex(p=>String(p.id)===String(id));
+    if(i!==-1) PRODS[i].archived=true;
+    try { await updateDoc(doc(window._db,'momoko_products',String(id)),{archived:true}); } catch(e){ console.error(e); }
+  }
+  saveP(PRODS); cancelBatchMode(); renderGrid();
+  showToast(`📦 已下架 ${chks.length} 個商品`);
+}
+
+function toggleBatchCheck(id){
+  updateBatchCount();
+}
+
 function buildProdCatFilter(){
   const sel = document.getElementById('prod-filter-cat');
   if(!sel) return;
@@ -1990,14 +2070,25 @@ function renderAList(){
   });
   if(kw) list = list.filter(p=>p.name.toLowerCase().includes(kw)||p.store.toLowerCase().includes(kw));
   if(filterCat) list = list.filter(p=>p.cat===filterCat||p.subcat===filterCat);
+  const filterArchived = document.getElementById('prod-filter-archived')?.value||'active';
+  if(filterArchived==='active') list = list.filter(p=>!p.archived);
+  else if(filterArchived==='archived') list = list.filter(p=>p.archived);
   if(!list.length){el.innerHTML='<div class="empty"><div class="empty-icon">📦</div><p>沒有符合的商品</p></div>';return;}
   el.innerHTML=list.map(p=>{
     const img0=getImg0(p);
     const catObj=CATS.find(c=>c.id===p.cat);
-    return`<div class="aprod">
+    const isArchived = p.archived;
+    return`<div class="aprod" style="${isArchived?'border-left:3px solid #fca5a5;':''}">
+      ${_batchMode && !isArchived ? `<input type="checkbox" class="batch-chk" data-id="${p.id}" onchange="toggleBatchCheck('${p.id}')" style="width:18px;height:18px;flex-shrink:0;margin-right:4px;">` : ''}
       <div class="aprod-img">${img0?`<img src="${img0}">`:`<span class="aprod-emoji-fb">${p.emoji}</span>`}</div>
-      <div class="aprod-info"><div class="aprod-name">${p.name}</div><div class="aprod-meta">${p.store}｜${catObj?catObj.label:p.cat}${p.low?' ⚠':''}</div><div class="aprod-price">NT$${p.price.toLocaleString()} / ${p.unit}</div></div>
-      <div class="aprod-actions"><button class="btn-edit" onclick="openProdForm('${p.id}')">編輯</button><button class="btn-del" onclick="delProd('${p.id}')">刪除</button><button style="padding:4px 8px;font-size:11px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;color:#0369a1;font-weight:700;" onclick="copyProdLink('${p.id}')">🔗 複製連結</button></div>
+      <div class="aprod-info"><div class="aprod-name">${p.name}${isArchived?' <span style="font-size:10px;background:#fee2e2;color:#ef4444;padding:1px 6px;border-radius:99px;">已下架</span>':''}</div><div class="aprod-meta">${p.store}｜${catObj?catObj.label:p.cat}${p.low?' ⚠':''}</div><div class="aprod-price">NT$${p.price.toLocaleString()} / ${p.unit}</div></div>
+      <div class="aprod-actions">
+        ${isArchived
+          ? `<button onclick="unarchiveProd('${p.id}')" style="padding:4px 8px;font-size:11px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:6px;color:#16a34a;font-weight:700;">重新上架</button>
+             <button onclick="permDeleteProd('${p.id}')" style="padding:4px 8px;font-size:11px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:6px;color:#ef4444;font-weight:700;">🗑 永久刪除</button>`
+          : `<button class="btn-edit" onclick="openProdForm('${p.id}')">編輯</button><button class="btn-del" onclick="delProd('${p.id}')">下架</button><button style="padding:4px 8px;font-size:11px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:6px;color:#0369a1;font-weight:700;" onclick="copyProdLink('${p.id}')">🔗 複製連結</button>`
+        }
+      </div>
     </div>`;
   }).join('');
 }
@@ -3115,13 +3206,15 @@ async function saveProd(){
 }
 function delProd(id){
   const p=PRODS.find(x=>String(x.id)===String(id));
-  if(!confirm(`確定刪除「${p?.name}」？此操作無法復原`)) return;
-  PRODS=PRODS.filter(x=>String(x.id)!==String(id));delete cart[id];
+  if(!confirm(`確定下架「${p?.name}」？商品資料會保留，可以隨時重新上架`)) return;
+  const i=PRODS.findIndex(x=>String(x.id)===String(id));
+  if(i!==-1) PRODS[i].archived=true;
+  delete cart[id];
   saveP(PRODS);
   delProdFB(id).then(()=>{
-    renderAList();renderAStatsProds();renderGrid();updCart();showToast('🗑 已刪除');
+    renderAList();renderAStatsProds();renderGrid();updCart();showToast('📦 已下架，資料保留中');
   }).catch(e=>{
-    showToast('❌ 刪除失敗：'+e.message);
+    showToast('❌ 下架失敗：'+e.message);
     console.error('delProd error:',e);
   });
 }
