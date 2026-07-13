@@ -1369,7 +1369,7 @@ input[type=file]{display:none;}
       </div>
       <div style="text-align:right;margin-bottom:6px;">
         <button onclick="document.getElementById('fix-archive-bar').style.display='flex'" style="font-size:11px;color:#888;background:none;border:none;text-decoration:underline;cursor:pointer;">🔧 修復未命名封存</button>
-        <button onclick="exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
+        <button onclick="alert('XLSX available: '+(typeof XLSX));exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -2206,7 +2206,7 @@ function selectAllBatch(){
   chks.forEach(c=>c.checked=!allChecked);
   updateBatchCount();
 }
-async function batchArchive(){
+window.batchArchive = async function(){
   const chks = [...document.querySelectorAll('.batch-chk:checked')];
   if(!chks.length){ showToast('⚠ 請先勾選商品'); return; }
   if(!confirm(`確定下架已勾選的 ${chks.length} 個商品？`)) return;
@@ -2450,7 +2450,7 @@ async function exportAllOrdersToSheets(){
   showToast(`✅ 已匯出 ${success} 筆訂單到試算表！`);
 }
 
-async function togglePayment(fbId, oi, value){
+window.togglePayment = async function(fbId, oi, value){
   const o = ORDERS[oi];
   if(!o) return;
   try {
@@ -3192,14 +3192,14 @@ function switchAdminOrderTab(tab){
   renderAdminOrders();
 }
 
-async function archiveAllOrders(){
+window.archiveAllOrders = async function(){
   document.getElementById('archive-name-input').value = '';
   document.getElementById('archive-modal').style.display='flex';
 }
 function closeArchiveModal(){
   document.getElementById('archive-modal').style.display='none';
 }
-async function confirmArchive(){
+window.confirmArchive = async function(){
   const name = document.getElementById('archive-name-input').value.trim();
   if(!name){ showToast('⚠ 請輸入連線名稱'); return; }
   closeArchiveModal();
@@ -3226,7 +3226,7 @@ function buildOrderCatFilter(){
   sel.innerHTML = allCats.map(c=>`<option value="${c.id}">${c.id?c.icon+' ':''} ${c.label}</option>`).join('');
 }
 
-async function markAllShipped(memberId, archiveName){
+window.markAllShipped = async function(memberId, archiveName){
   if(!confirm(`確定把「${memberId}」的所有訂單商品標記為已寄出？（店舖售完不受影響）`)) return;
   showToast('標記中…');
   const { doc, updateDoc } = window._fbFns;
@@ -3368,8 +3368,9 @@ async function renderAdminOrders(){
     el.innerHTML=html||'<div class="empty"><div class="empty-icon">📭</div><p>沒有封存訂單</p></div>';
     return;
   }
-async function exportArchivedToExcel(){
+window.exportArchivedToExcel = async function(){
   const archived = ORDERS.filter(o=>o.archived);
+  console.log('exportArchivedToExcel: archived count=', archived.length, 'total orders=', ORDERS.length);
   if(!archived.length){ showToast('⚠ 沒有封存訂單'); return; }
 
   const wb = XLSX.utils.book_new();
@@ -3417,8 +3418,8 @@ window.fixArchiveName = async function(){
   if(!name){ showToast('⚠ 請輸入名稱'); return; }
   showToast('修復中…');
   const { doc, updateDoc } = window._fbFns;
-  const toFix = ORDERS.filter(o=>o.archived && !o.archiveName);
-  console.log('toFix:', toFix.length, 'archived total:', ORDERS.filter(o=>o.archived).length);
+  const toFix = ORDERS.filter(o=>o.archived && (!o.archiveName || o.archiveName==='' || o.archiveName==='未命名連線'));
+  console.log('toFix:', toFix.length, 'archived:', ORDERS.filter(o=>o.archived).length, 'sample archiveName:', ORDERS.filter(o=>o.archived)[0]?.archiveName);
   if(!toFix.length){ showToast('沒有需要修復的訂單'); return; }
   for(const o of toFix){
     try{
