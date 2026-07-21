@@ -12,6 +12,25 @@
 <script>
   window.addEventListener('load', function() {
     emailjs.init({publicKey: 'WL1Q2JRdRJu1OgONq'});
+    // 輪播公告（同方向滑動）
+    const slider = document.getElementById('marquee-slider');
+    if(slider){
+      const msgs = ['本次 🇭🇰 連線滿$2500即可享免運~', '✦ 新加入的朋友請幫我至官方line建立會員~'];
+      let cur = 0;
+      slider.innerHTML = `<div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">${msgs[0]}</div><div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">${msgs[1]}</div>`;
+      setInterval(function(){
+        slider.style.transition = 'transform 0.6s ease';
+        slider.style.transform = 'translateX(-50%)';
+        setTimeout(function(){
+          slider.style.transition = 'none';
+          slider.style.transform = 'translateX(0)';
+          cur = (cur+1)%msgs.length;
+          const next = (cur+1)%msgs.length;
+          slider.children[0].textContent = msgs[cur];
+          slider.children[1].textContent = msgs[next];
+        }, 650);
+      }, 3500);
+    }
   });
   window._openArc = function(gi){
     var filtered = window['_archiveGroup_'+gi];
@@ -321,7 +340,7 @@ window.unarchiveProd = async function(id) {
   try {
     await updateDoc(doc(db,'momoko_products',String(id)), { archived: false });
     PRODS[i].archived = false;
-    saveP(PRODS); renderAList(); renderGrid();
+    saveP(PRODS); renderAList(); renderGrid(); buildDrawer();
     showToast('✅ 已重新上架！');
   } catch(e){ showToast('❌ 失敗：'+e.message); }
 };
@@ -524,15 +543,16 @@ window.saveTripFB = async function() {
     const pctEl = document.getElementById('trip-pct');
     if(!titleEl){showToast('❌ 找不到欄位 trip-title');return;}
     const data = {
-      title: titleEl.value.trim() || '福岡連線代購',
-      loc: locEl.value.trim() || '天神 / 博多 / 太宰府',
-      start: startEl.value || '2026/06/22',
-      end: endEl.value || '2026/07/04',
-      deadline: deadlineEl.value || '2026-06-20T23:59:59',
-      shopLabel: shopLabelEl.value.trim() || '',
+      title: titleEl.value.trim(),
+      loc: locEl.value.trim(),
+      start: startEl.value,
+      end: endEl.value,
+      deadline: deadlineEl.value,
+      shopLabel: shopLabelEl.value.trim(),
       step: tripStep,
-      pct: parseInt(pctEl.value) || 65,
+      pct: parseInt(pctEl.value) || 0,
     };
+    if(!data.title){ showToast('⚠ 請輸入行程名稱'); return; }
     showToast('儲存中…');
     await setDoc(doc(db,'momoko_settings','trip'), data);
     applyTrip(data);
@@ -620,7 +640,7 @@ window.loadProdsAndCats = async function() {
   /* FIX: bottom nav taller so icons don't get cut */
   --r:14px;--nav:56px;--tab:72px;
   --sb:max(env(safe-area-inset-bottom,0px),20px);
-  --topbar-offset:80px;
+  --topbar-offset:102px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{min-height:100%;background:var(--bg);-webkit-text-size-adjust:100%;overflow-y:auto;}
@@ -629,6 +649,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;}
 img{display:block;}
 
 /* TOPBAR */
+@keyframes marquee{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
 .topbar{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav);background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 16px;}
 .logo-jp{font-family:'Noto Sans TC',sans-serif;font-size:15px;color:var(--pri);letter-spacing:1px;line-height:1.3;}
 .logo-sub{font-size:9px;color:var(--muted);}
@@ -1116,7 +1137,13 @@ input[type=file]{display:none;}
 </div>
 
 <!-- TOPBAR -->
-<div class="topbar">
+<div id="marquee-bar" style="position:fixed;top:0;left:0;right:0;z-index:201;background:#c4a882;height:22px;overflow:hidden;">
+  <div id="marquee-slider" style="display:flex;width:200%;transition:transform 0.6s ease;">
+    <div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">本次 🇭🇰 連線滿$2500即可享免運~</div>
+    <div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">✦ 新加入的朋友請幫我至官方line建立會員~</div>
+  </div>
+</div>
+<div class="topbar" style="top:22px;">
   <div><div class="logo-jp">ももコ・もも購</div><div class="logo-sub">日本連線代購平台</div></div>
   <div class="topbar-r">
     <button class="notif-btn" onclick="openNotif()">
@@ -2099,7 +2126,11 @@ function renderGrid(){
       }
     }
     return p.cat===curCat;
-  })).filter(p=>!p.archived);
+  })).filter(p=>!p.archived).sort((a,b)=>{
+    const ta=a.createdAt?.toMillis?.()|| 0;
+    const tb=b.createdAt?.toMillis?.()|| 0;
+    return tb-ta;
+  });
   if(!list.length){
     grid.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🛍</div><p>此分類目前沒有商品</p></div>';
     return;
@@ -3964,9 +3995,10 @@ async function saveProd(){
       if(i!==-1) PRODS[i]={...PRODS[i],...prod};
       await saveProdFB(prod, editId);
     } else {
-      const prodWithTime = {...prod, createdAt: window._fbFns.serverTimestamp()};
+      const shortCode = Math.random().toString(36).slice(2,8);
+      const prodWithTime = {...prod, createdAt: window._fbFns.serverTimestamp(), shortCode};
       const newId=await saveProdFB(prodWithTime);
-      PRODS.unshift({id:newId,...prod,createdAt:{toMillis:()=>Date.now()}});
+      PRODS.unshift({id:newId,...prod,createdAt:{toMillis:()=>Date.now()},shortCode});
     }
     saveP(PRODS);closeSheet('prod-form-sheet');renderAList();renderAStatsProds();renderGrid();
     showToast(editId?'✅ 商品已更新':'✅ 商品已新增');
@@ -3983,7 +4015,7 @@ function delProd(id){
   delete cart[id];
   saveP(PRODS);
   delProdFB(id).then(()=>{
-    renderAList();renderAStatsProds();renderGrid();updCart();showToast('📦 已下架，資料保留中');
+    renderAList();renderAStatsProds();renderGrid();buildDrawer();updCart();showToast('📦 已下架，資料保留中');
   }).catch(e=>{
     showToast('❌ 下架失敗：'+e.message);
     console.error('delProd error:',e);
@@ -4007,7 +4039,9 @@ function openGuide(){document.getElementById('guide-page').style.display='block'
 function closeGuide(){document.getElementById('guide-page').style.display='none';}
 
 function copyProdLink(id){
-  const url = `${location.origin}${location.pathname}#product-${id}`;
+  const p = PRODS.find(x=>String(x.id)===String(id));
+  const code = p?.shortCode || id;
+  const url = `${location.origin}${location.pathname}#p-${code}`;
   try {
     navigator.clipboard.writeText(url).then(()=>{
       showToast('🔗 連結已複製！');
@@ -4028,19 +4062,21 @@ function fallbackCopy(url){
 
 function handleUrlHash(){
   const hash = location.hash;
-  if(!hash.startsWith('#product-')) return;
-  const id = hash.replace('#product-','');
-  goPage('shop');
-  openDetail(id);
+  if(!hash.startsWith('#product-') && !hash.startsWith('#p-')) return;
+  window._pendingHash = hash;
 }
 
 // 在商品載入完成後也檢查一次 hash
 window._onProdsLoaded = function(){
-  const hash = location.hash;
+  const hash = window._pendingHash || location.hash;
   if(hash.startsWith('#product-')){
     const id = hash.replace('#product-','');
     goPage('shop');
     setTimeout(()=>openDetail(id), 100);
+  } else if(hash.startsWith('#p-')){
+    const code = hash.replace('#p-','');
+    const p = PRODS.find(x=>x.shortCode===code);
+    if(p){ goPage('shop'); setTimeout(()=>openDetail(p.id), 100); }
   }
 }
 window.addEventListener('load', ()=>setTimeout(handleUrlHash, 300));
