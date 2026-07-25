@@ -1750,6 +1750,8 @@ input[type=file]{display:none;}
         <label class="flabel">子分類（選填）</label>
         <select class="fsel" id="f-subcat"></select>
       </div>
+      <label class="flabel">庫存數量（0 = 無限）</label>
+      <input class="finput" id="f-stock-qty" type="number" min="0" placeholder="0（無限）">
       <label class="flabel">庫存說明（選填）</label>
       <input class="finput" id="f-stock" placeholder="例：限量 20 盒 / 庫存充足">
       <label class="flabel">成本（日圓，僅後台顯示）</label>
@@ -2206,7 +2208,8 @@ function openDetail(id){
   document.getElementById('detail-store').textContent=p.store;
   document.getElementById('detail-name').textContent=p.name;
   document.getElementById('detail-price').innerHTML=`NT$${p.price.toLocaleString()}<small>/ ${p.unit}</small>`;
-  document.getElementById('detail-stock').textContent=(p.low?'⚠ ':'')+p.stock;
+  const stockText = p.stockQty > 0 ? `剩餘 ${p.stockQty} 件` : (p.stockQty===0?'庫存充足':'');
+  document.getElementById('detail-stock').textContent=(p.low?'⚠ ':'')+(p.stock||'')+(stockText?(p.stock?' ／ ':'')+stockText:'');
   document.getElementById('detail-stock').className='detail-stock'+(p.low?' low':'');
   const defaultDesc = '感謝大家對 ももコ 的支持！下單前請詳閱以下說明：\n\n＊本賣場為代購服務，商品皆由 ももコ 親自於日本選購或官網下訂。\n＊門市商品流通極快，若遇現場缺貨，我們將於第一時間通知並辦理退款，請見諒。\n＊代購商品屬客製化服務，除重大瑕疵外，恕不提供七天鑑賞期與退換貨服務。';
   document.getElementById('detail-desc').textContent=(p.desc?p.desc+'\n\n'+defaultDesc:defaultDesc);
@@ -3929,7 +3932,7 @@ function openProdForm(id){
   resetImgUI();
   document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
   document.getElementById('form-title').textContent=id?'編輯商品':'新增商品';
-  ['f-name','f-store','f-price','f-unit','f-stock','f-desc','f-sizes','f-colors','f-cost'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
+  ['f-name','f-store','f-price','f-unit','f-stock','f-stock-qty','f-desc','f-sizes','f-colors','f-cost'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('low-tog').classList.remove('on');
   rebuildCatSelect();
   if(id){
@@ -3940,6 +3943,7 @@ function openProdForm(id){
       document.getElementById('f-name').value=p.name;document.getElementById('f-store').value=p.store;
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock||'';
+      document.getElementById('f-stock-qty').value=p.stockQty||0;
       document.getElementById('f-sizes').value=(p.sizes||[]).join(',');
       document.getElementById('f-colors').value=(p.colors||[]).join(',');
       document.getElementById('f-cost').value=p.cost||'';document.getElementById('f-desc').value=p.desc||'';
@@ -3980,6 +3984,7 @@ async function saveProd(){
   const price=parseInt(document.getElementById('f-price').value);
   const unit=document.getElementById('f-unit').value.trim();
   const stock=document.getElementById('f-stock').value.trim();
+  const stockQty=parseInt(document.getElementById('f-stock-qty').value)||0;
   const desc=document.getElementById('f-desc').value.trim();
   const cat=document.getElementById('f-cat').value;
   const subcat=document.getElementById('f-subcat')?.value||'';
@@ -3988,7 +3993,7 @@ async function saveProd(){
   const cost=parseInt(document.getElementById('f-cost').value)||0;
   if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
   const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
-  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,desc,low:isLow,sizes,colors,cost};
+  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,stockQty,desc,low:isLow,sizes,colors,cost};
   try{
     if(editId){
       const i=PRODS.findIndex(p=>String(p.id)===String(editId));
@@ -4040,8 +4045,9 @@ function closeGuide(){document.getElementById('guide-page').style.display='none'
 
 function copyProdLink(id){
   const p = PRODS.find(x=>String(x.id)===String(id));
-  const code = p?.shortCode || id;
-  const url = `${location.origin}${location.pathname}#p-${code}`;
+  const url = p?.shortCode
+    ? `${location.origin}${location.pathname}#p-${p.shortCode}`
+    : `${location.origin}${location.pathname}#product-${id}`;
   try {
     navigator.clipboard.writeText(url).then(()=>{
       showToast('🔗 連結已複製！');
