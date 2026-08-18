@@ -15,7 +15,7 @@
     // 輪播公告（同方向滑動）
     const slider = document.getElementById('marquee-slider');
     if(slider){
-      const msgs = ['本次 🇭🇰 連線滿$2500即可享免運~', '✦ 新加入的朋友請幫我至官方line建立會員~'];
+      const msgs = ['本次🇯🇵連線滿$2500即可享免運～', '✦ 新加入的朋友請幫我至官方line建立會員~'];
       let cur = 0;
       slider.innerHTML = `<div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">${msgs[0]}</div><div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">${msgs[1]}</div>`;
       setInterval(function(){
@@ -236,7 +236,7 @@ window.submitOrderFB = async function() {
     showToast('❌ 送出失敗，請稍後再試');
     console.error(e);
   }
-  btn.textContent = '✓ 確認購買'; btn.disabled = false;
+  btn.textContent = '✓ 直接購買'; btn.disabled = false;
 };
 
 window.loadMyOrders = async function() {
@@ -802,8 +802,8 @@ img{display:block;}
 .qty-ctrl-lg{display:flex;align-items:center;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;}
 .qty-btn-lg{width:30px;height:30px;font-size:18px;color:var(--ink);background:#fff;display:flex;align-items:center;justify-content:center;}
 .qty-num-lg{width:34px;text-align:center;font-size:14px;font-weight:700;border-left:1.5px solid var(--border);border-right:1.5px solid var(--border);line-height:30px;}
-.btn-buy{width:100%;padding:11px;background:var(--ora);color:#fff;border-radius:10px;font-size:14px;font-weight:700;margin-bottom:7px;}
-.btn-buy-confirm{width:100%;padding:11px;background:var(--pri);color:#fff;border-radius:10px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn-buy{width:100%;padding:11px;background:var(--ora);color:#fff;border-radius:10px;font-size:14px;font-weight:700;margin-bottom:7px;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn-buy-confirm{width:100%;padding:11px;background:var(--pri);color:#fff;border-radius:10px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:7px;}
 
 /* ORDERS — FIX: filter chips mapped to real status */
 .order-filter{display:flex;gap:8px;padding:0 14px 10px;overflow-x:auto;scrollbar-width:none;}
@@ -1139,7 +1139,7 @@ input[type=file]{display:none;}
 <!-- TOPBAR -->
 <div id="marquee-bar" style="position:fixed;top:0;left:0;right:0;z-index:201;background:#c4a882;height:22px;overflow:hidden;">
   <div id="marquee-slider" style="display:flex;width:200%;transition:transform 0.6s ease;">
-    <div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">本次 🇭🇰 連線滿$2500即可享免運~</div>
+    <div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">本次🇯🇵連線滿$2500即可享免運～</div>
     <div style="width:50%;display:flex;align-items:center;justify-content:center;height:22px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;">✦ 新加入的朋友請幫我至官方line建立會員~</div>
   </div>
 </div>
@@ -1352,9 +1352,9 @@ input[type=file]{display:none;}
         <button class="qty-btn-lg" onclick="chgDetailQty(1)">＋</button>
       </div>
     </div>
-    <button class="btn-buy" onclick="addToCart()">加入喊單清單</button>
+    <button class="btn-buy" onclick="addToCart()"><svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM5.83 6l-.83-2H2V2H0v2h2l3.6 7.59L4.25 14c-.16.28-.25.61-.25.96C4 16.1 4.9 17 6 17h14v-2H6.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H19c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0 0 23.5 4H5.21z"/></svg>加入購物車</button>
     <button class="btn-buy-confirm" onclick="confirmBuyNow()">
-      <svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>確認購買
+      <svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>直接購買
     </button>
   </div>
 </div>
@@ -1567,7 +1567,9 @@ input[type=file]{display:none;}
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="bill-auto-soldout" checked onchange="previewBill()"> 店舖售完</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="bill-auto-paid" onchange="previewBill()"> 已付款商品</label>
       </div>
-      <label class="flabel" style="margin-top:10px;">活動折扣（NT$，選填）</label>
+      <label class="flabel" style="margin-top:10px;">折扣名稱（選填）</label>
+      <input class="finput" id="bill-discount-name" placeholder="例：滿額折扣、免運優惠" oninput="renderBillTotal()">
+      <label class="flabel" style="margin-top:6px;">折扣金額（NT$）</label>
       <input class="finput" id="bill-discount" type="number" placeholder="例：50" oninput="renderBillTotal()">
       <label class="flabel" style="margin-top:10px;">運費（NT$，選填）</label>
       <input class="finput" id="bill-shipping" type="number" placeholder="例：38" oninput="renderBillTotal()">
@@ -1672,7 +1674,7 @@ input[type=file]{display:none;}
       <div id="cart-items"></div>
       <div class="confirm-total"><span style="font-size:13px;color:var(--ora);">商品合計</span><strong id="cart-tot" style="font-size:16px;font-weight:700;color:var(--ora);">NT$ 0</strong></div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:13px;line-height:1.7;">✦ 最終金額以ももコ帳單確認為準<br>✦ 送出後ももコ會透過 LINE 確認</div>
-      <button class="btn-ora2" onclick="openConfirmModal()">確認購買 →</button>
+      <button class="btn-ora2" onclick="openConfirmModal()">直接購買 →</button>
       <a href="https://lin.ee/Pn0UEfk" target="_blank" class="btn-line-g" style="text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.48 2 2 6.48 2 12c0 3.3 2.1 6.2 5.3 7.9l-.7 2.6.75.55L10 21.25c.65.07 1.32.11 2 .11 5.52 0 10-4.48 10-9S17.52 2 12 2z"/></svg>聯繫 ももコ LINE</a>
       <div style="height:8px;"></div>
       <button class="btn-ghost" onclick="closeSheet('cart-sheet')">繼續選購</button>
@@ -1687,7 +1689,7 @@ input[type=file]{display:none;}
     <div class="confirm-box-title">確認送出喊單？</div>
     <div class="confirm-box-desc">ももコ會透過 LINE 回覆您確認結果</div>
     <div class="confirm-box-items" id="confirm-items-list"></div>
-    <button class="confirm-final-btn" onclick="submitOrderFB()">✓ 確認購買</button>
+    <button class="confirm-final-btn" onclick="submitOrderFB()">✓ 直接購買</button>
     <button class="confirm-cancel-btn" onclick="closeConfirmModal()">再想想</button>
   </div>
 </div>
@@ -2259,7 +2261,7 @@ function chgDetailQty(d){detailQty=Math.max(1,detailQty+d);document.getElementBy
 function addToCart(){
   if(!curDetailId)return;
   cart[curDetailId]={qty:detailQty,specs:getSelectedSpecs()};
-  updCart();closeDetail();showToast('✅ 已加入喊單清單');
+  updCart();closeDetail();showToast('✅ 已加入購物車');
 }
 function confirmBuyNow(){
   if(!curDetailId)return;
@@ -3115,6 +3117,7 @@ function toggleAllBillItems(){
 
 function renderBillTotal(){
   const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const discountName = document.getElementById('bill-discount-name')?.value.trim()||'折扣';
   const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
   const chks = document.querySelectorAll('.bill-item-chk');
   const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
@@ -3123,7 +3126,7 @@ function renderBillTotal(){
   document.getElementById('bill-total-box').innerHTML = `
     <div style="background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>商品小計（已選 ${selectedItems.length} 項）</span><span>NT$${subtotal.toLocaleString()}</span></div>
-      ${discount?`<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-bottom:4px;"><span>活動折扣</span><span>－NT$${discount.toLocaleString()}</span></div>`:''}
+      ${discount?`<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-bottom:4px;"><span>${discountName}</span><span>－NT$${discount.toLocaleString()}</span></div>`:''}
       ${shipping?`<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;"><span>運費</span><span>＋NT$${shipping.toLocaleString()}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--pri);margin-top:6px;"><span>總計</span><span>NT$${total.toLocaleString()}</span></div>
     </div>
@@ -3154,6 +3157,7 @@ async function downloadBillImage(){
   const memberName = el.dataset.memberName||'';
   const lineNick = el.dataset.lineNick||'';
   const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const discountName = document.getElementById('bill-discount-name')?.value.trim()||'折扣';
   const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
   const chks = document.querySelectorAll('.bill-item-chk');
   const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
@@ -3257,7 +3261,7 @@ async function downloadBillImage(){
     y += 26;
   };
   drawRow('商品小計', subtotal);
-  if(discount) drawRow('活動折扣 －', discount, false, '#22c55e');
+  if(discount) drawRow((discountName||'折扣')+' －', discount, false, '#22c55e');
   if(shipping) drawRow('運費 ＋', shipping);
   y += 4;
   ctx.strokeStyle='#c4a882'; ctx.lineWidth=1;
@@ -3284,6 +3288,7 @@ function copyBill(){
   const memberId = el.dataset.memberId;
   const memberName = el.dataset.memberName;
   const discount = parseInt(document.getElementById('bill-discount').value)||0;
+  const discountName = document.getElementById('bill-discount-name')?.value.trim()||'折扣';
   const shipping = parseInt(document.getElementById('bill-shipping').value)||0;
   const chks = document.querySelectorAll('.bill-item-chk');
   const selectedItems = [...chks].filter(c=>c.checked).map(c=>_billAllItems[parseInt(c.dataset.idx)]);
@@ -3300,7 +3305,7 @@ function copyBill(){
   });
   text += `━━━━━━━━━━━━━━\n`;
   text += `商品小計：NT$${subtotal.toLocaleString()}\n`;
-  if(discount) text += `活動折扣：－NT$${discount.toLocaleString()}\n`;
+  if(discount) text += `${discountName}：－NT$${discount.toLocaleString()}\n`;
   if(shipping) text += `運費：＋NT$${shipping.toLocaleString()}\n`;
   text += `💰 總計：NT$${total.toLocaleString()}\n`;
   text += `\n非常感謝您參與這次連線\n再麻煩您幫我確認個商品明細，並於48小時內完成匯款~\n\n有關於寄出時程請幫我閱讀社群記事本內容！\n有任何問題都歡迎提出謝謝您～`;
