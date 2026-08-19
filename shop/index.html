@@ -97,6 +97,49 @@
     });
     box.innerHTML=html; box.style.display='block';
   };
+
+  window.exportArchivedToExcel = async function(){
+    if(typeof XLSX==='undefined'){ alert('XLSX 尚未載入'); return; }
+    showToast('載入中…');
+    if(window.loadAllOrders) await window.loadAllOrders();
+    const archived = (window.ORDERS||[]).filter(function(o){return o.archived;});
+    if(!archived.length){ showToast('⚠ 沒有封存訂單'); return; }
+    const wb = XLSX.utils.book_new();
+    const groups = {};
+    archived.forEach(function(o){
+      const key = o.archiveName||'未命名連線';
+      if(!groups[key]) groups[key]=[];
+      groups[key].push(o);
+    });
+    Object.entries(groups).forEach(function(entry){
+      const name = entry[0]; const orders = entry[1];
+      const rows = [['會員編號','姓名','LINE暱稱','電話','商品名稱','規格','數量','售價','成本','利潤','付款狀態','下單日期']];
+      orders.sort(function(a,b){return String(a.memberId||'').localeCompare(String(b.memberId||''));});
+      orders.forEach(function(o){
+        (o.items||[]).forEach(function(item){
+          const isSoldOut = item.step===2;
+          const price = isSoldOut ? 0 : item.price;
+          const prodCost = (window.PRODS||[]).find(function(p){return String(p.id)===String(item.prodId);})?.cost||0;
+          const cost = isSoldOut ? 0 : prodCost * item.qty;
+          const profit = price - cost;
+          rows.push([o.memberId||'',o.memberName||'',o.lineNick||'',o.phone||'',item.name,item.specs||'',item.qty,price,cost,profit,o.payStatus||'未送付款單',o.date||'']);
+        });
+      });
+      const totalAmt = orders.reduce(function(s,o){return s+(o.total||0);},0);
+      const totalCost = orders.reduce(function(s,o){return s+(o.items||[]).reduce(function(ss,i){
+        const p=(window.PRODS||[]).find(function(p){return String(p.id)===String(i.prodId);});
+        return ss+(i.step===2?0:(p?.cost||0)*i.qty);
+      },0);},0);
+      rows.push(['','','','','','','','','','','','']);
+      rows.push(['📊 總計','','','','','','',totalAmt,totalCost,totalAmt-totalCost,'','']);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [8,10,12,12,20,12,6,8,8,8,10,10].map(function(w){return {wch:w};});
+      XLSX.utils.book_append_sheet(wb, ws, name.slice(0,31));
+    });
+    const date = new Date().toLocaleDateString('zh-TW').replace(/\//g,'-');
+    XLSX.writeFile(wb, 'ももコ封存訂單_'+date+'.xlsx');
+    showToast('✅ Excel 已下載！');
+  };
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -184,7 +227,7 @@ window.submitOrderFB = async function() {
     return;
   }
   const tot = Object.entries(cart).reduce((s,[id,v])=>{ const p=PRODS.find(x=>x.id==id); return s+(p?p.price*(v.qty||v):0); }, 0);
-  const items = Object.entries(cart).map(([id,v])=>{ const p=PRODS.find(x=>x.id==id); const qty=v.qty||v; const specs=v.specs||''; return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty,price:p.price*qty,specs,step:0,note:'',cat:p.cat||'',subcat:p.subcat||''}; });
+  const items = Object.entries(cart).map(([key,v])=>{ const prodId=v.prodId||key.split('||')[0]; const p=PRODS.find(x=>String(x.id)==String(prodId)); const qty=v.qty||0; const specs=v.specs||''; return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty,price:p.price*qty,specs,step:0,note:'',cat:p.cat||'',subcat:p.subcat||''}; });
   const orderData = { memberId: m.memberId, memberName: m.name||m.memberId, phone: m.phone||'', total: tot, items, status:'待確認', createdAt: serverTimestamp() };
   const btn = document.querySelector('.confirm-final-btn');
   btn.textContent = '送出中…'; btn.disabled = true;
@@ -1727,15 +1770,9 @@ input[type=file]{display:none;}
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="form-title">新增商品</div>
     <div class="sheet-body">
-      <label class="flabel">商品圖片網址</label>
-      <div style="margin-bottom:11px;">
-        <input class="finput" id="img-url-1" placeholder="圖片網址 1（主圖）" style="margin-bottom:6px;" oninput="previewImgUrl(1)">
-        <div id="img-preview-1" style="display:none;width:100%;height:120px;border-radius:10px;overflow:hidden;margin-bottom:6px;"><img id="img-preview-img-1" style="width:100%;height:100%;object-fit:cover;"></div>
-        <input class="finput" id="img-url-2" placeholder="圖片網址 2（選填）" style="margin-bottom:6px;" oninput="previewImgUrl(2)">
-        <div id="img-preview-2" style="display:none;width:100%;height:80px;border-radius:10px;overflow:hidden;margin-bottom:6px;"><img id="img-preview-img-2" style="width:100%;height:100%;object-fit:cover;"></div>
-        <input class="finput" id="img-url-3" placeholder="圖片網址 3（選填）" oninput="previewImgUrl(3)">
-        <div id="img-preview-3" style="display:none;width:100%;height:80px;border-radius:10px;overflow:hidden;margin-top:6px;"><img id="img-preview-img-3" style="width:100%;height:100%;object-fit:cover;"></div>
-      </div>
+      <label class="flabel">商品圖片網址（最多15張）</label>
+      <div id="img-slots-wrap" style="margin-bottom:11px;"></div>
+      <button type="button" onclick="addImgSlot()" style="width:100%;padding:8px;background:#f5f5f5;border:1.5px dashed #ddd;border-radius:8px;font-size:13px;color:#888;margin-bottom:11px;">＋ 新增圖片</button>
       <label class="flabel">或選擇 Emoji（沒有圖片時顯示）</label>
       <div class="emoji-grid" id="emoji-grid"></div>
       <label class="flabel">商品名稱</label>
@@ -1759,9 +1796,14 @@ input[type=file]{display:none;}
       <label class="flabel">成本（日圓，僅後台顯示）</label>
       <input class="finput" id="f-cost" placeholder="例：1200" type="number">
       <label class="flabel">尺寸規格（選填，用逗號分隔）</label>
-      <input class="finput" id="f-sizes" placeholder="例：S,M,L,XL 或 23cm,24cm,25cm">
+      <input class="finput" id="f-sizes" placeholder="例：S,M,L,XL 或 23cm,24cm,25cm" oninput="renderSpecPriceMap()">
       <label class="flabel">顏色規格（選填，用逗號分隔）</label>
-      <input class="finput" id="f-colors" placeholder="例：黑色,白色,粉紅色">
+      <input class="finput" id="f-colors" placeholder="例：黑色,白色,粉紅色" oninput="renderSpecPriceMap()">
+      <div id="spec-price-map-wrap" style="display:none;margin-bottom:11px;">
+        <label class="flabel">各規格價格與對應圖片（選填）</label>
+        <div id="spec-price-map" style="background:#f9f9f9;border-radius:8px;padding:8px;"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">填入圖片編號（1-15），不填則用主圖</div>
+      </div>
       <label class="flabel">商品說明</label>
       <textarea class="ftextarea" id="f-desc" placeholder="輸入商品詳細說明、注意事項…"></textarea>
       <div class="tog-row"><div class="tog" id="low-tog" onclick="togLow()"><div class="tog-ball"></div></div><span style="font-size:13px;color:var(--ink);">標記「庫存警示」⚠</span></div>
@@ -2247,6 +2289,19 @@ function selectSpec(el, type){
   el.closest('.spec-options').querySelectorAll('.spec-opt').forEach(o=>o.classList.remove('sel'));
   el.classList.add('sel');
   detailSpecs[type] = el.textContent.trim();
+  // 更新價格和圖片
+  const p = PRODS.find(x=>String(x.id)===String(curDetailId));
+  if(!p) return;
+  const specKey = Object.entries(detailSpecs).map(([k,v])=>v).join('/');
+  const specData = p.specPriceMap?.[specKey] || p.specPriceMap?.[detailSpecs[type]];
+  // 跳到對應圖片
+  if(specData?.imgIdx){
+    switchImg(specData.imgIdx-1, curDetailId);
+  }
+  // 更新價格顯示
+  const price = specData?.price || p.price;
+  const priceEl = document.getElementById('detail-price');
+  if(priceEl) priceEl.textContent = 'NT$'+price.toLocaleString();
 }
 function getSelectedSpecs(){
   return Object.entries(detailSpecs).map(([k,v])=>`${k==='size'?'尺寸':'顏色'}：${v}`).join('／');
@@ -2258,42 +2313,69 @@ function switchImg(idx,id){
 }
 function closeDetail(){document.getElementById('detail-sheet').classList.remove('open');detailSpecs={};}
 function chgDetailQty(d){detailQty=Math.max(1,detailQty+d);document.getElementById('detail-qty').textContent=detailQty;}
+function checkSpecsSelected(){
+  const p = PRODS.find(x=>String(x.id)===String(curDetailId));
+  if(!p) return true;
+  const hasSizes = p.sizes && p.sizes.length > 0;
+  const hasColors = p.colors && p.colors.length > 0;
+  if(hasSizes && !detailSpecs.size){
+    showToast('⚠ 請選擇尺寸！'); return false;
+  }
+  if(hasColors && !detailSpecs.color){
+    showToast('⚠ 請選擇顏色！'); return false;
+  }
+  return true;
+}
+
 function addToCart(){
-  if(!curDetailId)return;
-  cart[curDetailId]={qty:detailQty,specs:getSelectedSpecs()};
+  if(!curDetailId) return;
+  if(!checkSpecsSelected()) return;
+  const specs = getSelectedSpecs();
+  const key = curDetailId + (specs ? '||'+specs : '');
+  if(cart[key]) cart[key].qty += detailQty;
+  else cart[key] = {prodId:curDetailId, qty:detailQty, specs};
   updCart();closeDetail();showToast('✅ 已加入購物車');
 }
 function confirmBuyNow(){
-  if(!curDetailId)return;
-  cart[curDetailId]={qty:detailQty,specs:getSelectedSpecs()};
+  if(!curDetailId) return;
+  if(!checkSpecsSelected()) return;
+  const specs = getSelectedSpecs();
+  const key = curDetailId + (specs ? '||'+specs : '');
+  if(cart[key]) cart[key].qty += detailQty;
+  else cart[key] = {prodId:curDetailId, qty:detailQty, specs};
   updCart();closeDetail();openConfirmModal();
 }
 
 /* ── CART ── */
 function updCart(){
-  const qty=Object.values(cart).reduce((a,b)=>a+(b.qty||b),0);
-  const yen=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*(v.qty||v):0);},0);
+  const qty=Object.values(cart).reduce((a,b)=>a+(b.qty||0),0);
+  const yen=Object.entries(cart).reduce((s,[key,v])=>{
+    const prodId = v.prodId||key.split('||')[0];
+    const p=PRODS.find(x=>String(x.id)==String(prodId));
+    return s+(p?p.price*(v.qty||0):0);
+  },0);
   document.getElementById('cart-float').style.display=qty?'block':'none';
   document.getElementById('cart-cnt').textContent=`已選 ${qty} 件`;
   document.getElementById('cart-yen').textContent=`NT$ ${yen.toLocaleString()}`;
 }
 function openCartSheet(){
-  const items=Object.entries(cart).map(([id,v])=>{
-    const p=PRODS.find(x=>x.id==id);
-    const qty=v.qty||v;
+  const items=Object.entries(cart).map(([key,v])=>{
+    const prodId=v.prodId||key.split('||')[0];
+    const p=PRODS.find(x=>String(x.id)==String(prodId));
+    const qty=v.qty||0;
     const specs=v.specs||'';
     return`<div class="confirm-item">
       <div style="flex:1;">
-        <div>${p.emoji} ${p.name} × ${qty}</div>
+        <div>${p?.emoji||''} ${p?.name||''} × ${qty}</div>
         ${specs?`<div style="font-size:11px;color:var(--muted);margin-top:2px;">${specs}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span>NT$${(p.price*qty).toLocaleString()}</span>
-        <button onclick="removeFromCart('${id}')" style="font-size:16px;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">✕</button>
+        <span>NT$${((p?.price||0)*qty).toLocaleString()}</span>
+        <button onclick="removeFromCart('${key}')" style="font-size:16px;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">✕</button>
       </div>
     </div>`;
   }).join('');
-  const tot=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);return s+(p?p.price*(v.qty||v):0);},0);
+  const tot=Object.entries(cart).reduce((s,[key,v])=>{const prodId=v.prodId||key.split('||')[0];const p=PRODS.find(x=>String(x.id)==String(prodId));return s+(p?p.price*(v.qty||0):0);},0);
   document.getElementById('cart-items').innerHTML=items;
   document.getElementById('cart-tot').textContent=`NT$ ${tot.toLocaleString()}`;
   document.getElementById('cart-sheet').classList.add('show');
@@ -2308,15 +2390,16 @@ function removeFromCart(id){
 /* ── CONFIRM MODAL ── */
 function openConfirmModal(){
   closeSheet('cart-sheet');
-  const tot=Object.entries(cart).reduce((s,[id,v])=>{const p=PRODS.find(x=>x.id==id);const qty=v.qty||v;return s+(p?p.price*qty:0);},0);
+  const tot=Object.entries(cart).reduce((s,[key,v])=>{const prodId=v.prodId||key.split('||')[0];const p=PRODS.find(x=>String(x.id)==String(prodId));const qty=v.qty||0;return s+(p?p.price*qty:0);},0);
   document.getElementById('confirm-items-list').innerHTML=
-    Object.entries(cart).map(([id,v])=>{
-      const p=PRODS.find(x=>x.id==id);
-      const qty=v.qty||v;
+    Object.entries(cart).map(([key,v])=>{
+      const prodId=v.prodId||key.split('||')[0];
+      const p=PRODS.find(x=>String(x.id)==String(prodId));
+      const qty=v.qty||0;
       const specs=v.specs||'';
       return`<div class="confirm-box-item">
-        <div style="flex:1;"><div>${p.emoji} ${p.name} × ${qty}</div>${specs?`<div style="font-size:11px;color:var(--muted);">${specs}</div>`:''}</div>
-        <span>NT$${(p.price*qty).toLocaleString()}</span>
+        <div style="flex:1;"><div>${p?.emoji||''} ${p?.name||''} × ${qty}</div>${specs?`<div style="font-size:11px;color:var(--muted);">${specs}</div>`:''}</div>
+        <span>NT$${((p?.price||0)*qty).toLocaleString()}</span>
       </div>`;
     }).join('')+
     `<div class="confirm-box-total"><span>合計</span><span>NT$${tot.toLocaleString()}</span></div>`;
@@ -2668,10 +2751,11 @@ function checkMemberId(val){
 }
 
 async function clearAndExportToSheets(){
-  if(!confirm('確定清空試算表並重新匯出所有訂單？')) return;
+  if(!confirm('確定清空試算表並重新匯出本次連線訂單？')) return;
   showToast('匯出中…');
+  const currentOrders = ORDERS.filter(o=>!o.archived);
   const allItems = [];
-  ORDERS.forEach(o=>{
+  currentOrders.forEach(o=>{
     (o.items||[]).forEach(item=>{
       const isSoldOut = item.step===2;
       const cost = isSoldOut ? 0 : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty;
@@ -2690,15 +2774,16 @@ async function clearAndExportToSheets(){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ action:'clearAndExport', items: allItems })
     });
-    showToast(`✅ 已清空並重新匯出 ${allItems.length} 筆！`);
+    showToast(`✅ 已清空並重新匯出本次連線 ${allItems.length} 筆！`);
   }catch(e){ showToast('❌ 匯出失敗'); console.error(e); }
 }
 
 async function exportAllOrdersToSheets(){
-  if(!ORDERS.length){ showToast('⚠ 沒有訂單資料'); return; }
+  const currentOrders = ORDERS.filter(o=>!o.archived);
+  if(!currentOrders.length){ showToast('⚠ 本次連線沒有訂單'); return; }
   showToast('匯出中…');
   let success = 0;
-  for(const o of ORDERS){
+  for(const o of currentOrders){
     try{
       await fetch('https://script.google.com/macros/s/AKfycbz_izvHvd3_ysw9qvtssgWAIoVAu_q9USulzmK-hxFB2yZlw3iWCQzNvNdE4dpwzd1W/exec',{
         method:'POST', mode:'no-cors',
@@ -3765,6 +3850,8 @@ async function renderAdminOrders(){
     return;
   }
 window.exportArchivedToExcel = async function(){
+  showToast('載入中…');
+  if(window.loadAllOrders) await window.loadAllOrders();
   const archived = ORDERS.filter(o=>o.archived);
   console.log('exportArchivedToExcel: archived count=', archived.length, 'total orders=', ORDERS.length);
   if(!archived.length){ showToast('⚠ 沒有封存訂單'); return; }
@@ -3932,6 +4019,74 @@ function saveOrderProg(oi){
 
 /* ── PRODUCT FORM ── */
 let editId=null,selE='🛍',isLow=false;
+let imgSlots = [];
+function addImgSlot(){
+  if(imgSlots.length>=15){ showToast('⚠ 最多15張圖片'); return; }
+  const idx = imgSlots.length;
+  imgSlots.push('');
+  renderImgSlots();
+}
+function removeImgSlot(idx){
+  imgSlots.splice(idx,1);
+  renderImgSlots();
+  renderSpecPriceMap();
+}
+function renderImgSlots(){
+  const wrap = document.getElementById('img-slots-wrap');
+  if(!wrap) return;
+  wrap.innerHTML = imgSlots.map((url,idx)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">圖${idx+1}</span>
+      <input class="finput" value="${url}" placeholder="圖片網址" style="margin-bottom:0;flex:1;"
+        oninput="imgSlots[${idx}]=this.value;renderImgSlots();">
+      ${url?`<img src="${url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">`:
+        '<div style="width:40px;height:40px;border:1px dashed #ddd;border-radius:6px;flex-shrink:0;"></div>'}
+      <button onclick="removeImgSlot(${idx})" style="color:#ef4444;background:none;border:none;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>`).join('');
+}
+
+let specPriceMap = {}; // {specLabel: {price, imgIdx}}
+function renderSpecPriceMap(){
+  const sizes = document.getElementById('f-sizes')?.value.trim().split(',').map(s=>s.trim()).filter(s=>s)||[];
+  const colors = document.getElementById('f-colors')?.value.trim().split(',').map(s=>s.trim()).filter(s=>s)||[];
+  const wrap = document.getElementById('spec-price-map-wrap');
+  const container = document.getElementById('spec-price-map');
+  if(!wrap||!container) return;
+  const specs = [];
+  if(sizes.length&&colors.length){
+    sizes.forEach(s=>colors.forEach(c=>specs.push(s+'/'+c)));
+  } else {
+    sizes.forEach(s=>specs.push(s));
+    colors.forEach(c=>specs.push(c));
+  }
+  if(!specs.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  container.innerHTML = specs.map(spec=>`
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+      <span style="font-size:12px;min-width:80px;color:var(--ink);">${spec}</span>
+      <input type="number" placeholder="價格" value="${specPriceMap[spec]?.price||''}"
+        oninput="if(!specPriceMap['${spec}'])specPriceMap['${spec}']={};specPriceMap['${spec}'].price=parseInt(this.value)||0"
+        style="width:80px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
+      <span style="font-size:11px;color:var(--muted);">圖片#</span>
+      <input type="number" min="1" max="15" placeholder="1" value="${specPriceMap[spec]?.imgIdx||''}"
+        oninput="if(!specPriceMap['${spec}'])specPriceMap['${spec}']={};specPriceMap['${spec}'].imgIdx=parseInt(this.value)||1"
+        style="width:50px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
+    </div>`).join('');
+}
+
+function getImgsFromSlots(){
+  return imgSlots.filter(u=>u.trim());
+}
+
+function previewImgUrl(n){ // keep for backward compat
+  const el = document.getElementById('img-url-'+n);
+  if(!el) return;
+  const url = el.value.trim();
+  const prev = document.getElementById('img-preview-'+n);
+  const img = document.getElementById('img-preview-img-'+n);
+  if(prev&&img){ prev.style.display=url?'block':'none'; img.src=url; }
+}
+
 function openProdForm(id){
   editId=id;isLow=false;selE='🛍';
   resetImgUI();
@@ -3949,19 +4104,16 @@ function openProdForm(id){
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock||'';
       document.getElementById('f-stock-qty').value=p.stockQty||0;
+      imgSlots = p.imgs && p.imgs.length ? [...p.imgs] : [''];
+      specPriceMap = {...(p.specPriceMap||{})};
+      renderImgSlots();
       document.getElementById('f-sizes').value=(p.sizes||[]).join(',');
       document.getElementById('f-colors').value=(p.colors||[]).join(',');
-      document.getElementById('f-cost').value=p.cost||'';document.getElementById('f-desc').value=p.desc||'';
+      renderSpecPriceMap();
       document.getElementById('f-cat').value=p.cat;
       updateSubCatSelect();
       if(p.subcat) document.getElementById('f-subcat').value=p.subcat;
       if(p.low)document.getElementById('low-tog').classList.add('on');
-      const imgs = p.imgs || [];
-      [1,2,3].forEach((n,i)=>{
-        const url = imgs[i] || '';
-        document.getElementById(`img-url-${n}`).value = url;
-        previewImgUrl(n);
-      });
       document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
     }
   }
@@ -3976,10 +4128,10 @@ function previewImgUrl(n){
   else{preview.style.display='none';}
 }
 function resetImgUI(){
-  [1,2,3].forEach(n=>{
-    document.getElementById(`img-url-${n}`).value='';
-    document.getElementById(`img-preview-${n}`).style.display='none';
-  });
+  imgSlots = [''];
+  specPriceMap = {};
+  renderImgSlots();
+  renderSpecPriceMap();
 }
 function pickE(e){selE=e;document.querySelectorAll('.emoji-opt').forEach(el=>el.classList.toggle('sel',el.textContent===e));}
 function togLow(){isLow=!isLow;document.getElementById('low-tog').classList.toggle('on',isLow);}
@@ -3997,8 +4149,8 @@ async function saveProd(){
   const colors=document.getElementById('f-colors').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
   const cost=parseInt(document.getElementById('f-cost').value)||0;
   if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
-  const imgs=[1,2,3].map(n=>document.getElementById(`img-url-${n}`).value.trim()).filter(u=>u);
-  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,stockQty,desc,low:isLow,sizes,colors,cost};
+  const imgs = getImgsFromSlots();
+  const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,stockQty,desc,low:isLow,sizes,colors,cost,specPriceMap};
   try{
     if(editId){
       const i=PRODS.findIndex(p=>String(p.id)===String(editId));
