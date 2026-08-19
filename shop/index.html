@@ -1773,8 +1773,6 @@ input[type=file]{display:none;}
       <label class="flabel">商品圖片網址（最多15張）</label>
       <div id="img-slots-wrap" style="margin-bottom:11px;"></div>
       <button type="button" onclick="addImgSlot()" style="width:100%;padding:8px;background:#f5f5f5;border:1.5px dashed #ddd;border-radius:8px;font-size:13px;color:#888;margin-bottom:11px;">＋ 新增圖片</button>
-      <label class="flabel">或選擇 Emoji（沒有圖片時顯示）</label>
-      <div class="emoji-grid" id="emoji-grid"></div>
       <label class="flabel">商品名稱</label>
       <input class="finput" id="f-name" placeholder="例：龍角散喉糖（薄荷）">
       <label class="flabel">店家 / 品牌</label>
@@ -1920,7 +1918,7 @@ window.openArchiveDetail = function(groupName, filtered){
           return '<option value="'+s.val+'"'+(item.step===s.val?' selected':'')+'>'+s.text+'</option>';
         }).join('');
         return '<div class="aoi">'
-          +'<div class="aoi-img">'+(img?'<img src="'+img+'">':item.emoji||'🛍')+'</div>'
+          +'<div class="aoi-img">'+(img?'<img src="'+img+'">':'<img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg" style="width:100%;height:100%;object-fit:cover;">')+'</div>'
           +'<div class="aoi-name">'+item.name+(item.specs?' <span style="font-size:10px;color:var(--muted);">('+item.specs+')</span>':'')+'</div>'
           +'<div class="aoi-qty">×'+item.qty+'</div>'
           +'<div class="aoi-price">NT$'+item.price.toLocaleString()+'</div>'
@@ -2261,7 +2259,7 @@ function openDetail(id){
   const mainEl=document.getElementById('detail-main-img');
   const imgs=p.imgs||[];
   if(imgs[0]){mainEl.innerHTML=`<img src="${imgs[0]}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;">`;}
-  else{mainEl.innerHTML=`<span style="font-size:80px;">${p.emoji}</span>`;mainEl.style.background='var(--pri-s)';}
+  else{mainEl.innerHTML='<img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg" style="width:100%;height:100%;object-fit:cover;">';mainEl.style.background='#fff';}
   const thumbsEl=document.getElementById('detail-thumbs');
   if(imgs.length>1){
     thumbsEl.style.display='flex';
@@ -2610,7 +2608,7 @@ function renderAList(){
     const isArchived = p.archived;
     return`<div class="aprod" style="${isArchived?'border-left:3px solid #fca5a5;':''}">
       ${_batchMode && !isArchived ? `<input type="checkbox" class="batch-chk" data-id="${p.id}" onchange="toggleBatchCheck('${p.id}')" style="width:18px;height:18px;flex-shrink:0;margin-right:4px;">` : ''}
-      <div class="aprod-img">${img0?`<img src="${img0}">`:`<img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg" style="width:100%;height:100%;object-fit:cover;">"}</div>
+      <div class="aprod-img">${img0?`<img src="${img0}">`:`<img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg" style="width:100%;height:100%;object-fit:cover;">`}</div>
       <div class="aprod-info"><div class="aprod-name">${p.name}${isArchived?' <span style="font-size:10px;background:#fee2e2;color:#ef4444;padding:1px 6px;border-radius:99px;">已下架</span>':''}</div><div class="aprod-meta">${p.store}｜${catObj?catObj.label:p.cat}${p.low?' ⚠':''}</div><div class="aprod-price">NT$${p.price.toLocaleString()} / ${p.unit}</div></div>
       <div class="aprod-actions">
         ${isArchived
@@ -3309,13 +3307,13 @@ async function downloadBillImage(){
         ctx.fillStyle='#f0ece8';
         ctx.fillRect(PAD, y, IMG_SIZE, IMG_SIZE);
         ctx.font='24px sans-serif';
-        ctx.fillText(item.emoji||'🛍', PAD+10, y+36);
+        const logoFb=new Image();logoFb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(logoFb,PAD,y,IMG_SIZE,IMG_SIZE);}catch(e){}
       }
     } else {
       ctx.fillStyle='#f0ece8';
       ctx.fillRect(PAD, y, IMG_SIZE, IMG_SIZE);
       ctx.font='24px sans-serif';
-      ctx.fillText(item.emoji||'🛍', PAD+10, y+36);
+      const logoFb=new Image();logoFb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(logoFb,PAD,y,IMG_SIZE,IMG_SIZE);}catch(e){}
     }
     // 商品名稱
     const textX = PAD + IMG_SIZE + 12;
@@ -3481,7 +3479,7 @@ function renderSummary(){
     html += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;">
       <input type="checkbox" class="summary-chk" checked style="width:18px;height:18px;flex-shrink:0;">
       <div style="width:50px;height:50px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;">
-        ${img?`<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`:`<span style="font-size:24px;">${item.emoji||'🛍'}</span>`}
+        ${img?`<img src="${img}" style="width:100%;height:100%;object-fit:cover;">`:`<img src="https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg" style="width:100%;height:100%;object-fit:cover;">`}
       </div>
       <div style="flex:1;">
         <div style="font-size:13px;font-weight:700;">${item.name}</div>
@@ -3575,13 +3573,13 @@ async function generateSummaryImage(){
         ctx.fillStyle='#f0f0f0';
         roundRect(ctx,16,y,76,76,10,true);
         ctx.font='32px sans-serif';ctx.fillStyle='#ccc';
-        ctx.fillText(item.emoji||'🛍',22,y+54);
+        const lb=new Image();lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(lb,4,y+4,40,40);}catch(e){}
       }
     } else {
       ctx.fillStyle='#fff0f3';
       roundRect(ctx,16,y,76,76,10,true);
       ctx.font='34px sans-serif';
-      ctx.fillText(item.emoji||'🛍',22,y+54);
+      const lb=new Image();lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(lb,4,y+4,40,40);}catch(e){}
     }
 
     // 商品名稱
