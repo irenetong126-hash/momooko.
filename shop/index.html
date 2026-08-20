@@ -2210,6 +2210,10 @@ function buildDrawer(){
     const hasSubs = c.subs && c.subs.length > 0;
     const subsHtml = hasSubs ? `
       <div class="cat-subs" id="subs-${c.id}">
+        <div class="cat-sub-option${curCat===c.id?' active':''}" onclick="selectCat('${c.id}');event.stopPropagation();">
+          <span>🗂</span>
+          <span>全部</span>
+        </div>
         ${c.subs.map(s=>`
           <div class="cat-sub-option${curCat===s.id?' active':''}" onclick="selectCat('${s.id}');event.stopPropagation();">
             <span>${s.icon}</span>
@@ -4032,15 +4036,17 @@ function removeImgSlot(idx){
 function renderImgSlots(){
   const wrap = document.getElementById('img-slots-wrap');
   if(!wrap) return;
-  wrap.innerHTML = imgSlots.map((url,idx)=>`
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap;">圖${idx+1}</span>
-      <input class="finput" value="${url}" placeholder="圖片網址" style="margin-bottom:0;flex:1;"
-        oninput="imgSlots[${idx}]=this.value;renderImgSlots();">
-      ${url?`<img src="${url}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'">`:
-        '<div style="width:40px;height:40px;border:1px dashed #ddd;border-radius:6px;flex-shrink:0;"></div>'}
-      <button onclick="removeImgSlot(${idx})" style="color:#ef4444;background:none;border:none;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>
-    </div>`).join('');
+  wrap.innerHTML = imgSlots.map(function(url, idx){
+    const imgHtml = url
+      ? '<img src="'+url+'" style="width:40px;height:40px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display=\'none\'">'
+      : '<div style="width:40px;height:40px;border:1px dashed #ddd;border-radius:6px;flex-shrink:0;"></div>';
+    return '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">'
+      + '<span style="font-size:11px;color:var(--muted);white-space:nowrap;">圖'+(idx+1)+'</span>'
+      + '<input class="finput" value="'+url+'" placeholder="圖片網址" style="margin-bottom:0;flex:1;" oninput="imgSlots['+idx+']=this.value;renderImgSlots();">'
+      + imgHtml
+      + '<button onclick="removeImgSlot('+idx+')" style="color:#ef4444;background:none;border:none;font-size:16px;cursor:pointer;flex-shrink:0;">✕</button>'
+      + '</div>';
+  }).join('');
 }
 
 let specPriceMap = {}; // {specLabel: {price, imgIdx}}
