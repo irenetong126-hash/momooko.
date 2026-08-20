@@ -3307,13 +3307,13 @@ async function downloadBillImage(){
         ctx.fillStyle='#f0ece8';
         ctx.fillRect(PAD, y, IMG_SIZE, IMG_SIZE);
         ctx.font='24px sans-serif';
-        const logoFb=new Image();logoFb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(logoFb,PAD,y,IMG_SIZE,IMG_SIZE);}catch(e){}
+        (function(){const _lb=new Image();_lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';_lb.onload=function(){ctx.drawImage(_lb,PAD,y,IMG_SIZE,IMG_SIZE);};})()
       }
     } else {
       ctx.fillStyle='#f0ece8';
       ctx.fillRect(PAD, y, IMG_SIZE, IMG_SIZE);
       ctx.font='24px sans-serif';
-      const logoFb=new Image();logoFb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(logoFb,PAD,y,IMG_SIZE,IMG_SIZE);}catch(e){}
+      (function(){const _lb=new Image();_lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';_lb.onload=function(){ctx.drawImage(_lb,PAD,y,IMG_SIZE,IMG_SIZE);};})()
     }
     // 商品名稱
     const textX = PAD + IMG_SIZE + 12;
@@ -3573,13 +3573,13 @@ async function generateSummaryImage(){
         ctx.fillStyle='#f0f0f0';
         roundRect(ctx,16,y,76,76,10,true);
         ctx.font='32px sans-serif';ctx.fillStyle='#ccc';
-        const lb=new Image();lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(lb,4,y+4,40,40);}catch(e){}
+        (function(){const _lb2=new Image();_lb2.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';_lb2.onload=function(){ctx.drawImage(_lb2,4,y+4,40,40);};})()
       }
     } else {
       ctx.fillStyle='#fff0f3';
       roundRect(ctx,16,y,76,76,10,true);
       ctx.font='34px sans-serif';
-      const lb=new Image();lb.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';try{ctx.drawImage(lb,4,y+4,40,40);}catch(e){}
+      (function(){const _lb2=new Image();_lb2.src='https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';_lb2.onload=function(){ctx.drawImage(_lb2,4,y+4,40,40);};})()
     }
 
     // 商品名稱
@@ -4088,7 +4088,7 @@ function previewImgUrl(n){ // keep for backward compat
 function openProdForm(id){
   editId=id;isLow=false;selE='🛍';
   resetImgUI();
-  document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
+  const _eg=document.getElementById('emoji-grid');if(_eg)_eg.innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
   document.getElementById('form-title').textContent=id?'編輯商品':'新增商品';
   ['f-name','f-store','f-price','f-unit','f-stock','f-stock-qty','f-desc','f-sizes','f-colors','f-cost'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});
   document.getElementById('low-tog').classList.remove('on');
@@ -4112,7 +4112,7 @@ function openProdForm(id){
       updateSubCatSelect();
       if(p.subcat) document.getElementById('f-subcat').value=p.subcat;
       if(p.low)document.getElementById('low-tog').classList.add('on');
-      document.getElementById('emoji-grid').innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
+      const _eg=document.getElementById('emoji-grid');if(_eg)_eg.innerHTML=EMOJIS.map(e=>`<div class="emoji-opt${e===selE?' sel':''}" onclick="pickE('${e}')">${e}</div>`).join('');
     }
   }
   document.getElementById('prod-form-sheet').classList.add('show');
