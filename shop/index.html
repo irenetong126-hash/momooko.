@@ -227,7 +227,7 @@ window.submitOrderFB = async function() {
     return;
   }
   const tot = Object.entries(cart).reduce((s,[id,v])=>{ const p=PRODS.find(x=>x.id==id); return s+(p?p.price*(v.qty||v):0); }, 0);
-  const items = Object.entries(cart).map(([key,v])=>{ const prodId=v.prodId||key.split('||')[0]; const p=PRODS.find(x=>String(x.id)==String(prodId)); const qty=v.qty||0; const specs=v.specs||''; return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty,price:p.price*qty,specs,step:0,note:'',cat:p.cat||'',subcat:p.subcat||''}; });
+  const items = Object.entries(cart).map(([key,v])=>{ const prodId=v.prodId||key.split('||')[0]; const p=PRODS.find(x=>String(x.id)==String(prodId)); const qty=v.qty||0; const specs=v.specs||''; const unitPrice=v.unitPrice||p?.price||0; const unitCost=v.unitCost!==undefined?v.unitCost:(p?.cost||0); return {prodId:p.id,name:p.name,emoji:p.emoji,imgs:p.imgs||[],qty,price:unitPrice*qty,cost:unitCost,specs,step:0,note:'',cat:p.cat||'',subcat:p.subcat||''}; });
   const orderData = { memberId: m.memberId, memberName: m.name||m.memberId, phone: m.phone||'', total: tot, items, status:'待確認', createdAt: serverTimestamp() };
   const btn = document.querySelector('.confirm-final-btn');
   btn.textContent = '送出中…'; btn.disabled = true;
@@ -657,9 +657,7 @@ window.loadProdsAndCats = async function() {
     if (prodsSnap.docs.length > 0) {
       PRODS = prodsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       PRODS.sort((a,b)=>{
-        const ta = a.createdAt?.toMillis?.() || 0;
-        const tb = b.createdAt?.toMillis?.() || 0;
-        return tb - ta;
+        return getCreatedAtMs(b) - getCreatedAtMs(a);
       });
       saveP(PRODS); window.PRODS = PRODS; renderGrid();
       if(window._onProdsLoaded) window._onProdsLoaded();
@@ -1241,7 +1239,18 @@ input[type=file]{display:none;}
 
 <!-- SHOP -->
 <div class="page" id="page-shop">
-  <div class="sec-hd"><span class="shop-topbar-left" id="shop-cat-label">全部商品</span><button class="burger-btn" onclick="openDrawer()"><span></span><span></span><span></span></button></div>
+  <div class="sec-hd">
+    <span class="shop-topbar-left" id="shop-cat-label">全部商品</span>
+    <div style="display:flex;align-items:center;gap:4px;">
+      <button id="shop-search-btn" onclick="toggleShopSearch()" style="background:none;border:none;cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+      <button class="burger-btn" onclick="openDrawer()"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+  <div id="shop-search-wrap" style="display:none;padding:0 16px 10px;">
+    <input id="shop-search" class="finput" placeholder="搜尋商品名稱…" style="margin-bottom:0;" oninput="renderGrid()" autofocus>
+  </div>
   <div class="prod-grid" id="prod-grid"></div>
   <div style="height:90px;"></div>
   <div class="cart-float" id="cart-float">
@@ -1254,7 +1263,7 @@ input[type=file]{display:none;}
 
 <!-- ORDERS — FIX: filter chips now actually filter -->
 <div class="page" id="page-orders">
-  <div class="sec-hd">我的喊單</div>
+  <div class="sec-hd">喊單</div>
   <div class="order-filter">
     <button class="fchip active" onclick="switchOrderTab(this,'current')">本次連線</button>
     <button class="fchip" onclick="switchOrderTab(this,'history')">歷史訂單</button>
@@ -1348,8 +1357,8 @@ input[type=file]{display:none;}
 <!-- BOTTOM NAV -->
 <div class="bottom-nav">
   <div class="nav-item active" id="nav-home" onclick="goPage('home')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>首頁</div>
-  <div class="nav-item" id="nav-shop" onclick="goPage('shop')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm0 10c-1.66 0-3-1.34-3-3h2c0 .55.45 1 1 1s1-.45 1-1h2c0 1.66-1.34 3-3 3z"/></svg>喊單</div>
-  <div class="nav-item" id="nav-orders" onclick="goPage('orders')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg><span class="nbadge" id="orders-badge" style="display:none;">0</span>我的單</div>
+  <div class="nav-item" id="nav-shop" onclick="goPage('shop')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 6h-2c0-2.76-2.24-5-5-5S7 3.24 7 6H5c-1.1 0-1.99.9-1.99 2L3 20c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7-3c1.66 0 3 1.34 3 3H9c0-1.66 1.34-3 3-3zm0 10c-1.66 0-3-1.34-3-3h2c0 .55.45 1 1 1s1-.45 1-1h2c0 1.66-1.34 3-3 3z"/></svg>商品</div>
+  <div class="nav-item" id="nav-orders" onclick="goPage('orders')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg><span class="nbadge" id="orders-badge" style="display:none;">0</span>喊單</div>
   <div class="nav-item" id="nav-progress" onclick="goPage('progress')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>進度</div>
   <div class="nav-item" id="nav-member" onclick="goPage('member')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>會員</div>
 </div>
@@ -1795,12 +1804,12 @@ input[type=file]{display:none;}
       <input class="finput" id="f-cost" placeholder="例：1200" type="number">
       <label class="flabel">尺寸規格（選填，用逗號分隔）</label>
       <input class="finput" id="f-sizes" placeholder="例：S,M,L,XL 或 23cm,24cm,25cm" oninput="renderSpecPriceMap()">
-      <label class="flabel">顏色規格（選填，用逗號分隔）</label>
+      <label class="flabel">款式規格（選填，用逗號分隔）</label>
       <input class="finput" id="f-colors" placeholder="例：黑色,白色,粉紅色" oninput="renderSpecPriceMap()">
       <div id="spec-price-map-wrap" style="display:none;margin-bottom:11px;">
         <label class="flabel">各規格價格與對應圖片（選填）</label>
         <div id="spec-price-map" style="background:#f9f9f9;border-radius:8px;padding:8px;"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">填入圖片編號（1-15），不填則用主圖</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">售價／成本／圖片編號（1-15），不填則用基本設定</div>
       </div>
       <label class="flabel">商品說明</label>
       <textarea class="ftextarea" id="f-desc" placeholder="輸入商品詳細說明、注意事項…"></textarea>
@@ -1997,6 +2006,13 @@ let CATS=loadCats();
 window.CATS = CATS;
 
 /* ── PRODUCTS (empty defaults) ── */
+function getCreatedAtMs(p){
+  const c = p.createdAt;
+  if(!c) return 0;
+  if(typeof c.toMillis === 'function') return c.toMillis();
+  if(c.seconds) return c.seconds * 1000 + (c.nanoseconds||0)/1000000;
+  return 0;
+}
 function loadP(){try{const s=localStorage.getItem('momo_p');return s?JSON.parse(s):[];}catch(e){return[];}}
 function saveP(l){try{localStorage.setItem('momo_p',JSON.stringify(l));}catch(e){}}
 
@@ -2139,7 +2155,7 @@ function renderFavsGrid(){
       <div class="prod-tile-body">
         <div class="prod-tile-store">${p.store}</div>
         <div class="prod-tile-name">${p.name}</div>
-        <div class="prod-tile-price">NT$${p.price.toLocaleString()}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
+        <div class="prod-tile-price">${getPriceDisplay(p)}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
       </div>
     </div>`;
   }).join('');
@@ -2148,7 +2164,7 @@ function renderFavsGrid(){
 /* ── FIX: Compute overall order status (max step of all items) ── */
 function orderMaxStep(o){return Math.max(...o.items.map(i=>i.step));}
 
-/* ── FIX: Filter function for 我的單 filter chips ── */
+/* ── FIX: Filter function for 喊單 filter chips ── */
 function orderMatchesFilter(o,filter){
   const mx=orderMaxStep(o);
   if(filter==='all') return true;
@@ -2162,16 +2178,18 @@ function orderMatchesFilter(o,filter){
 function getImg0(p){return p.imgs&&p.imgs[0]?p.imgs[0]:'https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';}
 function renderGrid(){
   const grid=document.getElementById('prod-grid');
+  const searchQ = document.getElementById('shop-search')?.value.trim().toLowerCase()||'';
   const list=(curCat==='all'?PRODS:PRODS.filter(p=>{
     for(const c of CATS){
       if(c.subs){
         const sub = c.subs.find(s=>s.id===curCat);
         if(sub) return p.subcat===curCat;
       }
+      if(c.id===curCat) return p.cat===curCat;
     }
     return p.cat===curCat;
-  })).filter(p=>!p.archived).sort((a,b)=>{
-    const ta=a.createdAt?.toMillis?.()|| 0;
+  })).filter(p=>!p.archived).filter(p=>!searchQ||(p.name||'').toLowerCase().includes(searchQ)||(p.store||'').toLowerCase().includes(searchQ)).sort((a,b)=>{
+    const ta=getCreatedAtMs(a);
     const tb=b.createdAt?.toMillis?.()|| 0;
     return tb-ta;
   });
@@ -2195,7 +2213,7 @@ function renderGrid(){
       </div>
       <div class="prod-tile-body">
         <div class="prod-tile-name">${p.name}</div>
-        <div class="prod-tile-price">NT$${p.price.toLocaleString()}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
+        <div class="prod-tile-price">${getPriceDisplay(p)}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
         ${p.stock?`<div class="prod-tile-stock${p.low?' low':''}">${p.stock}</div>`:''}
       </div>
     </div>`;
@@ -2233,6 +2251,21 @@ function toggleSubs(catId){
   if(!el) return;
   el.classList.toggle('open');
 }
+function toggleShopSearch(){
+  const wrap = document.getElementById('shop-search-wrap');
+  const input = document.getElementById('shop-search');
+  const isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  if(!isOpen){
+    input.value = '';
+    input.focus();
+    renderGrid();
+  } else {
+    input.value = '';
+    renderGrid();
+  }
+}
+
 function openDrawer(){buildDrawer();document.getElementById('drawer-overlay').classList.add('show');document.getElementById('cat-drawer').classList.add('open');}
 function closeDrawer(){document.getElementById('drawer-overlay').classList.remove('show');document.getElementById('cat-drawer').classList.remove('open');}
 function selectCat(id){
@@ -2253,9 +2286,8 @@ function openDetail(id){
   document.getElementById('detail-back-title').textContent=p.name;
   document.getElementById('detail-store').textContent=p.store;
   document.getElementById('detail-name').textContent=p.name;
-  document.getElementById('detail-price').innerHTML=`NT$${p.price.toLocaleString()}<small>/ ${p.unit}</small>`;
-  const stockText = p.stockQty > 0 ? `剩餘 ${p.stockQty} 件` : (p.stockQty===0?'庫存充足':'');
-  document.getElementById('detail-stock').textContent=(p.low?'⚠ ':'')+(p.stock||'')+(stockText?(p.stock?' ／ ':'')+stockText:'');
+  document.getElementById('detail-price').innerHTML=getDetailPriceDisplay(p);
+  document.getElementById('detail-stock').textContent='';
   document.getElementById('detail-stock').className='detail-stock'+(p.low?' low':'');
   const defaultDesc = '感謝大家對 ももコ 的支持！下單前請詳閱以下說明：\n\n＊本賣場為代購服務，商品皆由 ももコ 親自於日本選購或官網下訂。\n＊門市商品流通極快，若遇現場缺貨，我們將於第一時間通知並辦理退款，請見諒。\n＊代購商品屬客製化服務，除重大瑕疵外，恕不提供七天鑑賞期與退換貨服務。';
   document.getElementById('detail-desc').textContent=(p.desc?p.desc+'\n\n'+defaultDesc:defaultDesc);
@@ -2303,10 +2335,12 @@ function selectSpec(el, type){
   // 更新價格顯示
   const price = specData?.price || p.price;
   const priceEl = document.getElementById('detail-price');
-  if(priceEl) priceEl.textContent = 'NT$'+price.toLocaleString();
+  if(priceEl) priceEl.innerHTML = `NT$${price.toLocaleString()}<small>/ ${p.unit}</small>`;
+  // 記錄當前規格成本（下單時使用）
+  window._currentSpecCost = specData?.cost || p.cost || 0;
 }
 function getSelectedSpecs(){
-  return Object.entries(detailSpecs).map(([k,v])=>`${k==='size'?'尺寸':'顏色'}：${v}`).join('／');
+  return Object.entries(detailSpecs).map(([k,v])=>`${k==='size'?'尺寸':'款式'}：${v}`).join('／');
 }
 function switchImg(idx,id){
   const p=PRODS.find(x=>String(x.id)===String(id));if(!p||!p.imgs[idx])return;
@@ -2324,7 +2358,7 @@ function checkSpecsSelected(){
     showToast('⚠ 請選擇尺寸！'); return false;
   }
   if(hasColors && !detailSpecs.color){
-    showToast('⚠ 請選擇顏色！'); return false;
+    showToast('⚠ 請選擇款式！'); return false;
   }
   return true;
 }
@@ -2333,9 +2367,15 @@ function addToCart(){
   if(!curDetailId) return;
   if(!checkSpecsSelected()) return;
   const specs = getSelectedSpecs();
+  const specKey = Object.values(detailSpecs).join('/');
+  const p2 = PRODS.find(x=>String(x.id)===String(curDetailId));
+  const specPrice = p2?.specPriceMap?.[specKey]?.price;
+  const specCost = p2?.specPriceMap?.[specKey]?.cost;
+  const finalPrice = specPrice || p2?.price || 0;
+  const finalCost = specCost !== undefined ? specCost : (p2?.cost || 0);
   const key = curDetailId + (specs ? '||'+specs : '');
   if(cart[key]) cart[key].qty += detailQty;
-  else cart[key] = {prodId:curDetailId, qty:detailQty, specs};
+  else cart[key] = {prodId:curDetailId, qty:detailQty, specs, unitPrice:finalPrice, unitCost:finalCost};
   updCart();closeDetail();showToast('✅ 已加入購物車');
 }
 function confirmBuyNow(){
@@ -2354,7 +2394,8 @@ function updCart(){
   const yen=Object.entries(cart).reduce((s,[key,v])=>{
     const prodId = v.prodId||key.split('||')[0];
     const p=PRODS.find(x=>String(x.id)==String(prodId));
-    return s+(p?p.price*(v.qty||0):0);
+    const unitPrice = v.unitPrice || p?.price || 0;
+    return s+(unitPrice*(v.qty||0));
   },0);
   document.getElementById('cart-float').style.display=qty?'block':'none';
   document.getElementById('cart-cnt').textContent=`已選 ${qty} 件`;
@@ -2538,7 +2579,7 @@ function closeAdmin(){
 function renderAStatsProds(){
   document.getElementById('admin-stats-prods').innerHTML=`
     <div class="astat"><div class="astat-num">${PRODS.length}</div><div class="astat-label">上架商品</div></div>
-    <div class="astat"><div class="astat-num">${ORDERS.length}</div><div class="astat-label">訂單總數</div></div>
+    <div class="astat"><div class="astat-num">${ORDERS.filter(o=>!o.archived).length}</div><div class="astat-label">訂單總數</div></div>
     <div class="astat"><div class="astat-num">${CATS.length}</div><div class="astat-label">分類數</div></div>`;
 }
 let _batchMode = false;
@@ -2701,7 +2742,7 @@ function addManualItem(){
   if(!id){ showToast('⚠ 請選擇商品'); return; }
   const p = PRODS.find(x=>String(x.id)===String(id));
   if(!p) return;
-  const specs = Object.entries(manualSpecs).map(([k,v])=>`${k==='size'?'尺寸':'顏色'}：${v}`).join('／');
+  const specs = Object.entries(manualSpecs).map(([k,v])=>`${k==='size'?'尺寸':'款式'}：${v}`).join('／');
   manualItems.push({prodId:p.id, name:p.name, emoji:p.emoji, imgs:p.imgs||[], qty:manualQty, price:p.price*manualQty, specs, step:0, note:''});
   renderManualItems();
   document.getElementById('manual-prod-select').value = '';
@@ -3661,7 +3702,7 @@ window.confirmArchive = async function(){
     }catch(e){ console.error(e); }
   }
   saveOrders(ORDERS);
-  renderAdminOrders();
+  await renderAdminOrders();
   renderMyOrders();
   showToast(`✅ 已封存「${name}」共 ${toArchive.length} 筆！`);
 }
@@ -4066,12 +4107,15 @@ function renderSpecPriceMap(){
   if(!specs.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
   container.innerHTML = specs.map(spec=>`
-    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;">
       <span style="font-size:12px;min-width:80px;color:var(--ink);">${spec}</span>
-      <input type="number" placeholder="價格" value="${specPriceMap[spec]?.price||''}"
+      <input type="number" placeholder="售價" value="${specPriceMap[spec]?.price||''}"
         oninput="if(!specPriceMap['${spec}'])specPriceMap['${spec}']={};specPriceMap['${spec}'].price=parseInt(this.value)||0"
-        style="width:80px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
-      <span style="font-size:11px;color:var(--muted);">圖片#</span>
+        style="width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
+      <input type="number" placeholder="成本" value="${specPriceMap[spec]?.cost||''}"
+        oninput="if(!specPriceMap['${spec}'])specPriceMap['${spec}']={};specPriceMap['${spec}'].cost=parseInt(this.value)||0"
+        style="width:70px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
+      <span style="font-size:11px;color:var(--muted);">圖#</span>
       <input type="number" min="1" max="15" placeholder="1" value="${specPriceMap[spec]?.imgIdx||''}"
         oninput="if(!specPriceMap['${spec}'])specPriceMap['${spec}']={};specPriceMap['${spec}'].imgIdx=parseInt(this.value)||1"
         style="width:50px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;">
@@ -4091,6 +4135,30 @@ function previewImgUrl(n){ // keep for backward compat
   if(prev&&img){ prev.style.display=url?'block':'none'; img.src=url; }
 }
 
+function getPriceDisplay(p){
+  const specPrices = Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0);
+  if(specPrices.length>0){
+    const min = Math.min(...specPrices, p.price||Infinity);
+    const max = Math.max(...specPrices, p.price||0);
+    const minP = p.price ? Math.min(p.price, ...specPrices) : Math.min(...specPrices);
+    const maxP = p.price ? Math.max(p.price, ...specPrices) : Math.max(...specPrices);
+    if(minP===maxP) return 'NT$'+minP.toLocaleString();
+    return 'NT$'+minP.toLocaleString()+'～'+maxP.toLocaleString();
+  }
+  return 'NT$'+(p.price||0).toLocaleString();
+}
+
+function getDetailPriceDisplay(p){
+  const specPrices = Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0);
+  if(specPrices.length>0){
+    const minP = p.price ? Math.min(p.price, ...specPrices) : Math.min(...specPrices);
+    const maxP = p.price ? Math.max(p.price, ...specPrices) : Math.max(...specPrices);
+    if(minP===maxP) return `NT$${minP.toLocaleString()}<small>/ ${p.unit}</small>`;
+    return `NT$${minP.toLocaleString()}～${maxP.toLocaleString()}<small>/ ${p.unit}</small>`;
+  }
+  return `NT$${(p.price||0).toLocaleString()}<small>/ ${p.unit}</small>`;
+}
+
 function openProdForm(id){
   editId=id;isLow=false;selE='🛍';
   resetImgUI();
@@ -4108,6 +4176,8 @@ function openProdForm(id){
       document.getElementById('f-price').value=p.price;document.getElementById('f-unit').value=p.unit;
       document.getElementById('f-stock').value=p.stock||'';
       document.getElementById('f-stock-qty').value=p.stockQty||0;
+      document.getElementById('f-cost').value=p.cost||'';
+      document.getElementById('f-desc').value=p.desc||'';
       imgSlots = p.imgs && p.imgs.length ? [...p.imgs] : [''];
       specPriceMap = {...(p.specPriceMap||{})};
       renderImgSlots();
@@ -4152,7 +4222,8 @@ async function saveProd(){
   const sizes=document.getElementById('f-sizes').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
   const colors=document.getElementById('f-colors').value.trim().split(',').map(s=>s.trim()).filter(s=>s);
   const cost=parseInt(document.getElementById('f-cost').value)||0;
-  if(!name||!store||!price||!unit){showToast('⚠ 請填寫所有必填欄位');return;}
+  const hasSpecPrices = Object.values(specPriceMap).some(v=>v.price>0);
+  if(!name||!store||(!price&&!hasSpecPrices)||!unit){showToast('⚠ 請填寫所有必填欄位（有規格價格時可不填基本價格）');return;}
   const imgs = getImgsFromSlots();
   const prod={cat,subcat,emoji:selE,imgs,store,name,price,unit,stock,stockQty,desc,low:isLow,sizes,colors,cost,specPriceMap};
   try{
