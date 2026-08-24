@@ -1242,8 +1242,8 @@ input[type=file]{display:none;}
   <div class="sec-hd">
     <span class="shop-topbar-left" id="shop-cat-label">全部商品</span>
     <div style="display:flex;align-items:center;gap:4px;">
-      <button id="shop-search-btn" onclick="toggleShopSearch()" style="background:none;border:none;cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <button id="shop-search-btn" onclick="toggleShopSearch()" style="background:none;border:none;cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;color:var(--ink);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1c3640" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
       <button class="burger-btn" onclick="openDrawer()"><span></span><span></span><span></span></button>
     </div>
@@ -4278,8 +4278,8 @@ function closeGuide(){document.getElementById('guide-page').style.display='none'
 function copyProdLink(id){
   const p = PRODS.find(x=>String(x.id)===String(id));
   const url = p?.shortCode
-    ? `${location.origin}${location.pathname}#p-${p.shortCode}`
-    : `${location.origin}${location.pathname}#product-${id}`;
+    ? `${location.origin}${location.pathname}?p=${p.shortCode}`
+    : `${location.origin}${location.pathname}?pid=${id}`;
   try {
     navigator.clipboard.writeText(url).then(()=>{
       showToast('🔗 連結已複製！');
@@ -4300,17 +4300,29 @@ function fallbackCopy(url){
 
 function handleUrlHash(){
   const hash = location.hash;
-  if(!hash.startsWith('#product-') && !hash.startsWith('#p-')) return;
-  window._pendingHash = hash;
+  const params = new URLSearchParams(location.search);
+  const pCode = params.get('p');
+  const pId = params.get('pid');
+  if(pCode || pId || hash.startsWith('#product-') || hash.startsWith('#p-')){
+    window._pendingHash = hash;
+    window._pendingP = pCode;
+    window._pendingPid = pId;
+  }
 }
 
 // 在商品載入完成後也檢查一次 hash
 window._onProdsLoaded = function(){
   const hash = window._pendingHash || location.hash;
-  if(hash.startsWith('#product-')){
+  const pCode = window._pendingP;
+  const pId = window._pendingPid;
+  if(pCode){
+    const p = PRODS.find(x=>x.shortCode===pCode);
+    if(p){ goPage('shop'); setTimeout(()=>openDetail(p.id), 100); }
+  } else if(pId){
+    goPage('shop'); setTimeout(()=>openDetail(pId), 100);
+  } else if(hash.startsWith('#product-')){
     const id = hash.replace('#product-','');
-    goPage('shop');
-    setTimeout(()=>openDetail(id), 100);
+    goPage('shop'); setTimeout(()=>openDetail(id), 100);
   } else if(hash.startsWith('#p-')){
     const code = hash.replace('#p-','');
     const p = PRODS.find(x=>x.shortCode===code);
