@@ -4312,9 +4312,10 @@ function handleUrlHash(){
 
 // 在商品載入完成後也檢查一次 hash
 window._onProdsLoaded = function(){
+  const params = new URLSearchParams(location.search);
+  const pCode = window._pendingP || params.get('p');
+  const pId = window._pendingPid || params.get('pid');
   const hash = window._pendingHash || location.hash;
-  const pCode = window._pendingP;
-  const pId = window._pendingPid;
   if(pCode){
     const p = PRODS.find(x=>x.shortCode===pCode);
     if(p){ goPage('shop'); setTimeout(()=>openDetail(p.id), 100); }
