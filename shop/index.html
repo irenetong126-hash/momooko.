@@ -4229,6 +4229,12 @@ async function saveProd(){
   try{
     if(editId){
       const i=PRODS.findIndex(p=>String(p.id)===String(editId));
+      const existing = i!==-1 ? PRODS[i] : null;
+      if(!existing?.shortCode){
+        prod.shortCode = Math.random().toString(36).slice(2,8);
+      } else {
+        prod.shortCode = existing.shortCode;
+      }
       if(i!==-1) PRODS[i]={...PRODS[i],...prod};
       await saveProdFB(prod, editId);
     } else {
