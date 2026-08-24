@@ -4284,8 +4284,8 @@ function closeGuide(){document.getElementById('guide-page').style.display='none'
 function copyProdLink(id){
   const p = PRODS.find(x=>String(x.id)===String(id));
   const url = p?.shortCode
-    ? `${location.origin}${location.pathname}?p=${p.shortCode}`
-    : `${location.origin}${location.pathname}?pid=${id}`;
+    ? `https://og.momo-oko.com/?p=${p.shortCode}`
+    : `https://og.momo-oko.com/?pid=${id}`;
   try {
     navigator.clipboard.writeText(url).then(()=>{
       showToast('🔗 連結已複製！');
