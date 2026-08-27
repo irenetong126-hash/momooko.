@@ -119,8 +119,8 @@
         (o.items||[]).forEach(function(item){
           const isSoldOut = item.step===2;
           const price = isSoldOut ? 0 : item.price;
-          const prodCost = (window.PRODS||[]).find(function(p){return String(p.id)===String(item.prodId);})?.cost||0;
-          const cost = isSoldOut ? 0 : prodCost * item.qty;
+          const unitCost = item.cost !== undefined ? item.cost : ((window.PRODS||[]).find(function(p){return String(p.id)===String(item.prodId);})?.cost||0);
+          const cost = isSoldOut ? 0 : unitCost * item.qty;
           const profit = price - cost;
           rows.push([o.memberId||'',o.memberName||'',o.lineNick||'',o.phone||'',item.name,item.specs||'',item.qty,price,cost,profit,o.payStatus||'未送付款單',o.date||'']);
         });
@@ -335,7 +335,7 @@ window.saveOrderProgFB = async function(oi) {
     // 同步試算表（售完商品金額歸零）
     const updates = ORDERS[oi].items.map(item=>{
       const isSoldOut = item.step===2;
-      const cost = isSoldOut ? 0 : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty;
+      const cost = isSoldOut ? 0 : (item.cost!==undefined ? item.cost : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0))*item.qty;
       const price = isSoldOut ? 0 : item.price;
       return { name: item.name, specs: item.specs||'', price, cost, profit: price-cost };
     });
@@ -2371,8 +2371,8 @@ function addToCart(){
   const p2 = PRODS.find(x=>String(x.id)===String(curDetailId));
   const specPrice = p2?.specPriceMap?.[specKey]?.price;
   const specCost = p2?.specPriceMap?.[specKey]?.cost;
-  const finalPrice = specPrice || p2?.price || 0;
-  const finalCost = specCost !== undefined ? specCost : (p2?.cost || 0);
+  const finalPrice = (specPrice && specPrice > 0) ? specPrice : (p2?.price || 0);
+  const finalCost = (specCost !== undefined && specCost >= 0) ? specCost : (p2?.cost || 0);
   const key = curDetailId + (specs ? '||'+specs : '');
   if(cart[key]) cart[key].qty += detailQty;
   else cart[key] = {prodId:curDetailId, qty:detailQty, specs, unitPrice:finalPrice, unitCost:finalCost};
@@ -2394,7 +2394,7 @@ function updCart(){
   const yen=Object.entries(cart).reduce((s,[key,v])=>{
     const prodId = v.prodId||key.split('||')[0];
     const p=PRODS.find(x=>String(x.id)==String(prodId));
-    const unitPrice = v.unitPrice || p?.price || 0;
+    const unitPrice = (v.unitPrice && !isNaN(v.unitPrice)) ? v.unitPrice : (p?.price || 0);
     return s+(unitPrice*(v.qty||0));
   },0);
   document.getElementById('cart-float').style.display=qty?'block':'none';
