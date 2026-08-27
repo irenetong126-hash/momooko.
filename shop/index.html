@@ -118,9 +118,10 @@
       orders.forEach(function(o){
         (o.items||[]).forEach(function(item){
           const isSoldOut = item.step===2;
-          const price = isSoldOut ? 0 : item.price;
+          const rawPrice = isSoldOut ? 0 : (item.price||0);
+          const price = isNaN(rawPrice) ? 0 : rawPrice;
           const unitCost = item.cost !== undefined ? item.cost : ((window.PRODS||[]).find(function(p){return String(p.id)===String(item.prodId);})?.cost||0);
-          const cost = isSoldOut ? 0 : unitCost * item.qty;
+          const cost = isSoldOut ? 0 : (isNaN(unitCost) ? 0 : unitCost) * item.qty;
           const profit = price - cost;
           rows.push([o.memberId||'',o.memberName||'',o.lineNick||'',o.phone||'',item.name,item.specs||'',item.qty,price,cost,profit,o.payStatus||'未送付款單',o.date||'']);
         });
@@ -1944,7 +1945,7 @@ window.openArchiveDetail = function(groupName, filtered){
         +'</div>'
         +'<div class="aorder-items">'+itemsHtml+'</div>'
         +'<div class="aorder-ft">'
-        +'<span class="aorder-total">合計 <strong>NT$'+o.total.toLocaleString()+'</strong></span>'
+        +'<span class="aorder-total">合計 <strong>NT$'+(isNaN(o.total)?0:o.total).toLocaleString()+'</strong></span>'
         +'<div style="display:flex;gap:6px;">'
         +'<button onclick="window.saveArcOrderProg('+oi+')" class="btn-save-prog">儲存進度</button>'
         +'</div>'
@@ -2801,8 +2802,9 @@ async function clearAndExportToSheets(){
   currentOrders.forEach(o=>{
     (o.items||[]).forEach(item=>{
       const isSoldOut = item.step===2;
-      const cost = isSoldOut ? 0 : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty;
-      const price = isSoldOut ? 0 : item.price;
+      const isPurchased = item.step===1;
+      const cost = isPurchased ? (item.cost !== undefined ? item.cost*item.qty : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty) : 0;
+      const price = isPurchased ? item.price : 0;
       allItems.push({
         date: o.date||'', memberId: o.memberId||'', memberName: o.memberName||'',
         name: item.name, specs: item.specs||'', qty: item.qty,
@@ -2839,10 +2841,10 @@ async function exportAllOrdersToSheets(){
             name: i.name,
             specs: i.specs||'',
             qty: i.qty,
-            price: i.price,
-            cost: PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0
+            price: i.step===1 ? i.price : 0,
+            cost: i.step===1 ? (i.cost !== undefined ? i.cost*i.qty : (PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0)*i.qty) : 0
           })),
-          total: o.total
+          total: (o.items||[]).filter(i=>i.step===1).reduce((s,i)=>s+i.price,0)
         })
       });
       success++;
