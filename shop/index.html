@@ -2805,7 +2805,9 @@ async function clearAndExportToSheets(){
     (o.items||[]).filter(item=>item.step!==0).forEach(item=>{
       const isSoldOut = item.step===2;
       const isPurchased = item.step===1;
-      const cost = isPurchased ? (item.cost !== undefined ? item.cost*item.qty : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty) : 0;
+      const prodCost = (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0);
+      const unitCost = (item.cost!==undefined && item.cost>0) ? item.cost : prodCost;
+      const cost = isPurchased ? unitCost*item.qty : 0;
       const price = isPurchased ? item.price : 0;
       allItems.push({
         date: o.date||'', memberId: o.memberId||'', memberName: o.memberName||'',
@@ -3086,10 +3088,11 @@ function computeOrderStats(){
   activeOrders.forEach(o=>{
     (o.items||[]).forEach(i=>{
       const price = isNaN(i.price) ? 0 : (i.price||0);
-      const unitCost = isNaN(i.cost) ? 0 : (i.cost||0);
+      const prodCost = (PRODS.find(p=>String(p.id)===String(i.prodId))?.cost||0);
+      const unitCost = (i.cost!==undefined && i.cost>0) ? i.cost : prodCost;
       const profit = price - unitCost * (i.qty||1);
-      if(i.step!==2) totalProfit += profit; // 總計：排除售完
-      if(i.step===1) achievedProfit += profit; // 已達：只算採購完成
+      if(i.step!==2) totalProfit += profit;
+      if(i.step===1) achievedProfit += profit;
     });
   });
   return{users:users.size,purchased,unpurchased,unpaidAmount,totalProfit,achievedProfit};
