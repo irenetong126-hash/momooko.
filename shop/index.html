@@ -318,8 +318,10 @@ window.saveOrderProgFB = async function(oi) {
   ORDERS[oi].items.forEach((_,ii)=>{
     const sel=document.getElementById(`sel-${oi}-${ii}`);
     const note=document.getElementById(`note-${oi}-${ii}`);
+    const costEl=document.getElementById(`cost-${oi}-${ii}`);
     if(sel) ORDERS[oi].items[ii].step=parseInt(sel.value);
     if(note) ORDERS[oi].items[ii].note=note.value;
+    if(costEl&&costEl.value!=='') ORDERS[oi].items[ii].cost=parseInt(costEl.value)||0;
   });
   // 重新計算總計（扣除店舖售完的商品）
   const newTotal = ORDERS[oi].items
@@ -2800,7 +2802,7 @@ async function clearAndExportToSheets(){
   const currentOrders = ORDERS.filter(o=>!o.archived);
   const allItems = [];
   currentOrders.forEach(o=>{
-    (o.items||[]).forEach(item=>{
+    (o.items||[]).filter(item=>item.step!==0).forEach(item=>{
       const isSoldOut = item.step===2;
       const isPurchased = item.step===1;
       const cost = isPurchased ? (item.cost !== undefined ? item.cost*item.qty : (PRODS.find(p=>String(p.id)===String(item.prodId))?.cost||0)*item.qty) : 0;
@@ -2837,7 +2839,7 @@ async function exportAllOrdersToSheets(){
           date: o.date || '',
           memberId: o.memberId || '',
           lineNick: o.lineNick || '',
-          items: (o.items||[]).map(i=>({
+          items: (o.items||[]).filter(i=>i.step!==0).map(i=>({
             name: i.name,
             specs: i.specs||'',
             qty: i.qty,
@@ -3079,7 +3081,18 @@ function computeOrderStats(){
   const unpaidAmount = activeOrders
     .filter(o=>!o.payStatus||o.payStatus==='未送付款單'||o.payStatus==='未付款')
     .reduce((s,o)=>s+(o.total||0),0);
-  return{users:users.size,purchased,unpurchased,unpaidAmount};
+  let totalProfit = 0;
+  let achievedProfit = 0;
+  activeOrders.forEach(o=>{
+    (o.items||[]).forEach(i=>{
+      const price = isNaN(i.price) ? 0 : (i.price||0);
+      const unitCost = isNaN(i.cost) ? 0 : (i.cost||0);
+      const profit = price - unitCost * (i.qty||1);
+      if(i.step!==2) totalProfit += profit; // 總計：排除售完
+      if(i.step===1) achievedProfit += profit; // 已達：只算採購完成
+    });
+  });
+  return{users:users.size,purchased,unpurchased,unpaidAmount,totalProfit,achievedProfit};
 }
 function getBillSentKey(){
   const arc = document.getElementById('bill-arc-sel')?.value||'current';
@@ -3768,7 +3781,9 @@ async function renderAdminOrders(){
     <div class="astat"><div class="astat-num">${stats.users}</div><div class="astat-label">下單人數</div></div>
     <div class="astat"><div class="astat-num" style="color:var(--grn);">${stats.purchased}</div><div class="astat-label">已採買件數</div></div>
     <div class="astat"><div class="astat-num" style="color:var(--ora);">${stats.unpurchased}</div><div class="astat-label">未採買件數</div></div>
-    <div class="astat"><div class="astat-num" style="color:#ef4444;font-size:14px;">NT$${stats.unpaidAmount.toLocaleString()}</div><div class="astat-label">未收金額</div></div>`;
+    <div class="astat"><div class="astat-num" style="color:#ef4444;font-size:14px;">NT$${stats.unpaidAmount.toLocaleString()}</div><div class="astat-label">未收金額</div></div>
+    <div class="astat"><div class="astat-num" style="color:#9aab9e;font-size:14px;">NT$${stats.totalProfit.toLocaleString()}</div><div class="astat-label">總計利潤</div></div>
+    <div class="astat"><div class="astat-num" style="color:#a88a6a;font-size:14px;">NT$${stats.achievedProfit.toLocaleString()}</div><div class="astat-label">已達利潤</div></div>`;
 
   const filterCat = document.getElementById('order-filter-cat')?.value || '';
   const filterMember = document.getElementById('order-filter-member')?.value.trim().toLowerCase() || '';
@@ -4027,6 +4042,7 @@ function renderOrderCard(o, realOi){
             ${STATUS_LIST.map(s=>`<option value="${s.val}"${item.step===s.val?' selected':''}>${s.text}</option>`).join('')}
           </select>
           <input class="aoi-note" id="note-${realOi}-${ii}" placeholder="備註（顯示給客人）" value="${item.note||''}">
+          <input type="number" class="aoi-note" id="cost-${realOi}-${ii}" placeholder="成本（選填）" value="${item.cost||''}" style="width:100px;">
         </div>`;
       }).join('')}</div>
       <div class="aorder-ft">
