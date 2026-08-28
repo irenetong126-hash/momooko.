@@ -2976,9 +2976,9 @@ function dropCat(e, i){
   const moved = CATS.splice(dragSrcIdx,1)[0];
   CATS.splice(i,0,moved);
   dragSrcIdx=null;
-  saveCats(CATS);
+  saveCats(CATS); window.CATS=CATS;
   saveCatsFB(CATS).then(()=>showToast('✅ 順序已更新')).catch(e=>showToast('❌ '+e.message));
-  renderAdminCats(); rebuildCatSelect(); rebuildSubCatSelect();
+  renderAdminCats(); rebuildCatSelect(); rebuildSubCatSelect(); buildDrawer();
 }
 function toggleEditCat(i){
   const el = document.getElementById(`cat-edit-${i}`);
@@ -4157,10 +4157,9 @@ function previewImgUrl(n){ // keep for backward compat
 }
 
 function getPriceDisplay(p){
-  const specPrices = Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0);
+  const hasSpecs = (p.sizes&&p.sizes.length>0) || (p.colors&&p.colors.length>0);
+  const specPrices = hasSpecs ? Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0) : [];
   if(specPrices.length>0){
-    const min = Math.min(...specPrices, p.price||Infinity);
-    const max = Math.max(...specPrices, p.price||0);
     const minP = p.price ? Math.min(p.price, ...specPrices) : Math.min(...specPrices);
     const maxP = p.price ? Math.max(p.price, ...specPrices) : Math.max(...specPrices);
     if(minP===maxP) return 'NT$'+minP.toLocaleString();
@@ -4170,7 +4169,8 @@ function getPriceDisplay(p){
 }
 
 function getDetailPriceDisplay(p){
-  const specPrices = Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0);
+  const hasSpecs = (p.sizes&&p.sizes.length>0) || (p.colors&&p.colors.length>0);
+  const specPrices = hasSpecs ? Object.values(p.specPriceMap||{}).map(v=>v.price).filter(v=>v>0) : [];
   if(specPrices.length>0){
     const minP = p.price ? Math.min(p.price, ...specPrices) : Math.min(...specPrices);
     const maxP = p.price ? Math.max(p.price, ...specPrices) : Math.max(...specPrices);
