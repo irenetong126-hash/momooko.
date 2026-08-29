@@ -146,6 +146,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB-PFQyZAAo6AajzpkXEcsaQyakFKIaR_8",
@@ -159,6 +160,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
+window._storage = storage;
+window._fbFns = { ...window._fbFns, ref, uploadBytes, getDownloadURL };
 window._auth = auth; window._db = db;
 window._fbFns = { signInWithEmailAndPassword, signOut, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc };
 
@@ -1783,8 +1787,14 @@ input[type=file]{display:none;}
     <div class="sheet-title" id="form-title">新增商品</div>
     <div class="sheet-body">
       <label class="flabel">商品圖片網址（最多15張）</label>
-      <div id="img-slots-wrap" style="margin-bottom:11px;"></div>
-      <button type="button" onclick="addImgSlot()" style="width:100%;padding:8px;background:#f5f5f5;border:1.5px dashed #ddd;border-radius:8px;font-size:13px;color:#888;margin-bottom:11px;">＋ 新增圖片</button>
+      <div id="img-slots-wrap" style="margin-bottom:6px;"></div>
+      <div style="display:flex;gap:8px;margin-bottom:11px;">
+        <button type="button" onclick="addImgSlot()" style="flex:1;padding:8px;background:#f5f5f5;border:1.5px dashed #ddd;border-radius:8px;font-size:13px;color:#888;">＋ 貼上網址</button>
+        <label style="flex:1;padding:8px;background:#c8d5c0;border:1.5px solid #9aab9e;border-radius:8px;font-size:13px;color:#3d5c3a;text-align:center;cursor:pointer;font-weight:600;">
+          📷 上傳圖片
+          <input type="file" accept="image/*" multiple style="display:none;" onchange="uploadImgs(this)">
+        </label>
+      </div>
       <label class="flabel">商品名稱</label>
       <input class="finput" id="f-name" placeholder="例：龍角散喉糖（薄荷）">
       <label class="flabel">店家 / 品牌</label>
@@ -4084,6 +4094,31 @@ function saveOrderProg(oi){
 /* ── PRODUCT FORM ── */
 let editId=null,selE='🛍',isLow=false;
 let imgSlots = [];
+async function uploadImgs(input){
+  const files = [...input.files];
+  if(!files.length) return;
+  if(imgSlots.length + files.length > 15){
+    showToast('⚠ 最多15張圖片');
+    return;
+  }
+  showToast('上傳中…');
+  try {
+    for(const file of files){
+      const fileName = `products/${Date.now()}_${file.name}`;
+      const storageRef = window._fbFns.ref(window._storage, fileName);
+      const snapshot = await window._fbFns.uploadBytes(storageRef, file);
+      const url = await window._fbFns.getDownloadURL(snapshot.ref);
+      imgSlots.push(url);
+    }
+    renderImgSlots();
+    showToast(`✅ 上傳成功 ${files.length} 張！`);
+  } catch(e){
+    showToast('❌ 上傳失敗：' + e.message);
+    console.error(e);
+  }
+  input.value = '';
+}
+
 function addImgSlot(){
   if(imgSlots.length>=15){ showToast('⚠ 最多15張圖片'); return; }
   const idx = imgSlots.length;
