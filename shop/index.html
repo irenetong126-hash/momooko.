@@ -4099,21 +4099,16 @@ let imgSlots = [];
 async function uploadImgs(input){
   const files = [...input.files];
   if(!files.length) return;
-  if(imgSlots.length + files.length > 15){
-    showToast('⚠ 最多15張圖片');
-    return;
-  }
-  if(!window._storage || !window._storageRef){
-    showToast('❌ Storage 未初始化，請重新整理');
-    return;
-  }
+  if(imgSlots.length + files.length > 15){ showToast('⚠ 最多15張圖片'); return; }
   showToast('上傳中…');
   try {
+    const { getStorage, ref, uploadBytes, getDownloadURL } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js');
+    const storage = getStorage();
     for(const file of files){
       const fileName = `products/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._]/g,'_')}`;
-      const storageRef = window._storageRef(window._storage, fileName);
-      const snapshot = await window._uploadBytes(storageRef, file);
-      const url = await window._getDownloadURL(snapshot.ref);
+      const storageRef = ref(storage, fileName);
+      const snapshot = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(snapshot.ref);
       imgSlots.push(url);
     }
     renderImgSlots();
