@@ -162,7 +162,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 window._storage = storage;
-window._fbFns = { ...window._fbFns, ref, uploadBytes, getDownloadURL };
+window._storageRef = ref;
+window._uploadBytes = uploadBytes;
+window._getDownloadURL = getDownloadURL;
 window._auth = auth; window._db = db;
 window._fbFns = { signInWithEmailAndPassword, signOut, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc };
 
@@ -4105,9 +4107,9 @@ async function uploadImgs(input){
   try {
     for(const file of files){
       const fileName = `products/${Date.now()}_${file.name}`;
-      const storageRef = window._fbFns.ref(window._storage, fileName);
-      const snapshot = await window._fbFns.uploadBytes(storageRef, file);
-      const url = await window._fbFns.getDownloadURL(snapshot.ref);
+      const storageRef = window._storageRef(window._storage, fileName);
+      const snapshot = await window._uploadBytes(storageRef, file);
+      const url = await window._getDownloadURL(snapshot.ref);
       imgSlots.push(url);
     }
     renderImgSlots();
