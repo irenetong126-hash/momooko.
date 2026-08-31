@@ -4103,10 +4103,14 @@ async function uploadImgs(input){
     showToast('⚠ 最多15張圖片');
     return;
   }
+  if(!window._storage || !window._storageRef){
+    showToast('❌ Storage 未初始化，請重新整理');
+    return;
+  }
   showToast('上傳中…');
   try {
     for(const file of files){
-      const fileName = `products/${Date.now()}_${file.name}`;
+      const fileName = `products/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._]/g,'_')}`;
       const storageRef = window._storageRef(window._storage, fileName);
       const snapshot = await window._uploadBytes(storageRef, file);
       const url = await window._getDownloadURL(snapshot.ref);
