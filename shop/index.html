@@ -2942,6 +2942,8 @@ function renderAdminCats(){
           <div class="acat-label">${c.label}</div>
           ${(c.subs||[]).length?`<div style="font-size:10px;color:var(--muted);margin-top:2px;">${(c.subs||[]).map(s=>`${s.icon}${s.label}`).join('・')}</div>`:''}
         </div>
+        <button onclick="moveCat(${i},-1)" style="padding:4px 6px;background:#f0f4f5;border:1px solid #ddd;border-radius:6px;font-size:12px;">↑</button>
+        <button onclick="moveCat(${i},1)" style="padding:4px 6px;background:#f0f4f5;border:1px solid #ddd;border-radius:6px;font-size:12px;">↓</button>
         <button class="btn-edit" style="font-size:11px;padding:4px 8px;" onclick="toggleEditCat(${i})">編輯</button>
         <button onclick="toggleCatVisibility(${i})" style="font-size:11px;padding:4px 8px;background:${c.hidden?'#f0fdf4':'#fef2f2'};border:1.5px solid ${c.hidden?'#86efac':'#fecaca'};border-radius:6px;color:${c.hidden?'#16a34a':'#ef4444'};font-weight:700;">${c.hidden?'上架':'下架'}</button>
         <button class="acat-del" onclick="delCatConfirm(${i})">刪除</button>
@@ -2971,6 +2973,17 @@ function toggleCatVisibility(i){
     buildDrawer();
     showToast(CATS[i].hidden ? '📦 已下架' : '✅ 已上架');
   }).catch(e=>showToast('❌ '+e.message));
+}
+
+function moveCat(i, dir){
+  const newI = i + dir;
+  if(newI < 0 || newI >= CATS.length) return;
+  const tmp = CATS[i];
+  CATS[i] = CATS[newI];
+  CATS[newI] = tmp;
+  saveCats(CATS); window.CATS = CATS;
+  saveCatsFB(CATS).then(()=>showToast('✅ 順序已更新')).catch(e=>showToast('❌ '+e.message));
+  renderAdminCats(); rebuildCatSelect(); buildDrawer();
 }
 
 let dragSrcIdx = null;
