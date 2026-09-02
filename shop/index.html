@@ -146,7 +146,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB-PFQyZAAo6AajzpkXEcsaQyakFKIaR_8",
@@ -160,11 +159,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
-window._storage = storage;
-window._storageRef = ref;
-window._uploadBytes = uploadBytes;
-window._getDownloadURL = getDownloadURL;
 window._auth = auth; window._db = db;
 window._fbFns = { signInWithEmailAndPassword, signOut, collection, addDoc, query, where, getDocs, serverTimestamp, doc, getDoc, updateDoc, setDoc, deleteDoc };
 
