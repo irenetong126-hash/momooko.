@@ -796,12 +796,12 @@ img{display:block;}
 .cat-sub-option.active,.cat-sub-option:active{background:var(--pri-s);color:var(--pri-d);font-weight:600;}
 
 .drawer-overlay.show{display:block;}
-.cat-drawer{position:fixed;top:0;right:0;bottom:0;width:72%;max-width:290px;background:#fff;z-index:401;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;}
+.cat-drawer{position:fixed;top:0;right:0;bottom:0;width:72%;max-width:290px;background:#fff;z-index:401;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;padding-bottom:80px;}
 .cat-drawer.open{transform:translateX(0);}
 .drawer-hd{padding:20px 18px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .drawer-title{font-family:'Shippori Mincho',serif;font-size:16px;}
 .drawer-close{font-size:22px;color:var(--muted);padding:4px;}
-.drawer-body{flex:1;overflow-y:auto;padding:8px 0;}
+.drawer-body{flex:1;overflow-y:auto;padding:8px 0 80px;}
 .cat-option{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;transition:background .15s;}
 .cat-option.active{background:var(--pri-s);}
 .cat-option.active .cat-opt-label{color:var(--pri);font-weight:700;}
@@ -1527,6 +1527,7 @@ input[type=file]{display:none;}
       <div style="text-align:right;margin-bottom:6px;">
         <button onclick="document.getElementById('fix-archive-bar').style.display='flex'" style="font-size:11px;color:#888;background:none;border:none;text-decoration:underline;cursor:pointer;">🔧 修復未命名封存</button>
         <button onclick="window.exportArchivedToExcel()" style="font-size:11px;color:#16a34a;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">📊 匯出封存 Excel</button>
+        <button onclick="window.openShippingExportModal()" style="font-size:11px;color:#b45309;background:none;border:none;text-decoration:underline;cursor:pointer;margin-left:10px;">🚚 匯出賣貨便名單</button>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <select class="fsel" id="order-filter-cat" onchange="renderAdminOrders()" style="flex:1;margin-bottom:0;">
@@ -1703,6 +1704,27 @@ input[type=file]{display:none;}
     <div style="display:flex;gap:8px;">
       <button onclick="confirmArchive()" class="btn-pri" style="flex:1;">確定封存</button>
       <button onclick="closeArchiveModal()" style="flex:1;padding:11px;background:#f5f5f5;border-radius:10px;font-size:14px;color:#888;">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHIPPING (賣貨便) EXPORT MODAL -->
+<div id="shipping-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;width:100%;max-width:360px;max-height:88dvh;overflow-y:auto;">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px;">🚚 匯出賣貨便商品名單</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;">依會員產生「一人一件商品」的賣貨便批次匯入檔（單規格商品匯入格式）。</div>
+    <label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px;">來源訂單</label>
+    <select class="fsel" id="ship-export-source" onchange="window.buildShippingPreview()" style="margin-bottom:14px;">
+      <option value="current">本次連線</option>
+    </select>
+    <label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px;">賣場名稱（上限20字）</label>
+    <input id="ship-export-shopname" class="finput" maxlength="20" placeholder="例：ももコ_福岡連線" style="margin-bottom:14px;">
+    <label style="font-size:12px;font-weight:600;color:var(--ink);display:block;margin-bottom:6px;">每筆價格（NT$）</label>
+    <input id="ship-export-price" class="finput" type="number" value="20" style="margin-bottom:6px;">
+    <div id="ship-export-preview-count" style="font-size:12px;color:var(--muted);margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="window.downloadShippingExport()" class="btn-pri" style="flex:1;">下載 Excel</button>
+      <button onclick="window.closeShippingExportModal()" style="flex:1;padding:11px;background:#f5f5f5;border-radius:10px;font-size:14px;color:#888;">取消</button>
     </div>
   </div>
 </div>
@@ -2335,7 +2357,7 @@ function selectSpec(el, type){
   // 更新價格和圖片
   const p = PRODS.find(x=>String(x.id)===String(curDetailId));
   if(!p) return;
-  const specKey = Object.entries(detailSpecs).map(([k,v])=>v).join('/');
+  const specKey = [detailSpecs.size, detailSpecs.color].filter(Boolean).join('/');
   const specData = p.specPriceMap?.[specKey] || p.specPriceMap?.[detailSpecs[type]];
   // 跳到對應圖片
   if(specData?.imgIdx){
@@ -2376,7 +2398,7 @@ function addToCart(){
   if(!curDetailId) return;
   if(!checkSpecsSelected()) return;
   const specs = getSelectedSpecs();
-  const specKey = Object.values(detailSpecs).join('/');
+  const specKey = [detailSpecs.size, detailSpecs.color].filter(Boolean).join('/');
   const p2 = PRODS.find(x=>String(x.id)===String(curDetailId));
   const specPrice = p2?.specPriceMap?.[specKey]?.price;
   const specCost = p2?.specPriceMap?.[specKey]?.cost;
@@ -2391,9 +2413,15 @@ function confirmBuyNow(){
   if(!curDetailId) return;
   if(!checkSpecsSelected()) return;
   const specs = getSelectedSpecs();
+  const specKey = [detailSpecs.size, detailSpecs.color].filter(Boolean).join('/');
+  const p2 = PRODS.find(x=>String(x.id)===String(curDetailId));
+  const specPrice = p2?.specPriceMap?.[specKey]?.price;
+  const specCost = p2?.specPriceMap?.[specKey]?.cost;
+  const finalPrice = (specPrice && specPrice > 0) ? specPrice : (p2?.price || 0);
+  const finalCost = (specCost !== undefined && specCost >= 0) ? specCost : (p2?.cost || 0);
   const key = curDetailId + (specs ? '||'+specs : '');
   if(cart[key]) cart[key].qty += detailQty;
-  else cart[key] = {prodId:curDetailId, qty:detailQty, specs};
+  else cart[key] = {prodId:curDetailId, qty:detailQty, specs, unitPrice:finalPrice, unitCost:finalCost};
   updCart();closeDetail();openConfirmModal();
 }
 
@@ -4025,6 +4053,109 @@ window.fixArchiveName = async function(){
   saveOrders(ORDERS);
   renderAdminOrders();
   showToast(`✅ 已修復 ${toFix.length} 筆！`);
+}
+
+/* ── 賣貨便匯出（一人一件商品，商品名稱＝會員編號+LINE暱稱） ── */
+window.openShippingExportModal = async function(){
+  showToast('載入中…');
+  if(window.loadAllOrders) await window.loadAllOrders();
+  const sel = document.getElementById('ship-export-source');
+  if(sel){
+    const arcNames = [...new Set(ORDERS.filter(o=>o.archived&&o.archiveName).map(o=>o.archiveName))];
+    sel.innerHTML = '<option value="current">本次連線</option>'
+      + arcNames.map(n=>`<option value="${n}">${n}</option>`).join('');
+  }
+  // 預設賣場名稱：ももコ_<行程小標題或行程名稱>，超過20字截斷
+  try{
+    const d = await window._fbFns.getDoc(window._fbFns.doc(window._db,'momoko_settings','trip'));
+    const tripTitle = d.exists() ? (d.data().title||'') : '';
+    const nameInput = document.getElementById('ship-export-shopname');
+    if(nameInput && !nameInput.value){
+      let base = 'ももコ_' + tripTitle;
+      if(base.length > 20) base = base.slice(0,20);
+      nameInput.value = base;
+    }
+  }catch(e){ console.error(e); }
+  document.getElementById('shipping-export-modal').style.display='flex';
+  window.buildShippingPreview();
+}
+window.closeShippingExportModal = function(){
+  document.getElementById('shipping-export-modal').style.display='none';
+}
+
+// 依來源整理出「一人一筆」清單：{memberId, lineNick, memberName}
+window._getShippingMemberList = async function(){
+  const src = document.getElementById('ship-export-source')?.value || 'current';
+  const orders = src==='current' ? ORDERS.filter(o=>!o.archived) : ORDERS.filter(o=>o.archived && o.archiveName===src);
+  const map = {};
+  orders.forEach(o=>{
+    const mid = (o.memberId||'').toUpperCase();
+    if(!mid) return;
+    if(!map[mid]) map[mid] = { memberId: mid, memberName: o.memberName||mid, lineNick: o.lineNick||'' };
+    if(!map[mid].lineNick && o.lineNick) map[mid].lineNick = o.lineNick;
+  });
+  // 從 members 集合補齊 LINE 暱稱（訂單上沒存到的情況）
+  const ids = Object.keys(map);
+  await Promise.all(ids.map(async mid=>{
+    if(map[mid].lineNick) return;
+    try{
+      const snap = await window._fbFns.getDoc(window._fbFns.doc(window._db,'members',mid));
+      if(snap.exists()){
+        map[mid].lineNick = snap.data().lineNick || '';
+        if(!map[mid].memberName || map[mid].memberName===mid) map[mid].memberName = snap.data().name || mid;
+      }
+    }catch(e){}
+  }));
+  return Object.values(map).sort((a,b)=>a.memberId.localeCompare(b.memberId));
+}
+
+window.buildShippingPreview = async function(){
+  const list = await window._getShippingMemberList();
+  const el = document.getElementById('ship-export-preview-count');
+  if(el) el.textContent = `共 ${list.length} 位會員，將產生 ${list.length} 筆商品`;
+  return list;
+}
+
+window.downloadShippingExport = async function(){
+  const shopName = document.getElementById('ship-export-shopname')?.value.trim();
+  const price = parseInt(document.getElementById('ship-export-price')?.value) || 20;
+  if(!shopName){ showToast('⚠ 請輸入賣場名稱'); return; }
+  if(shopName.length > 20){ showToast('⚠ 賣場名稱不可超過20字'); return; }
+  const list = await window._getShippingMemberList();
+  if(!list.length){ showToast('⚠ 沒有會員資料可匯出'); return; }
+  showToast('產生中…');
+
+  const wb = XLSX.utils.book_new();
+
+  // 賣場匯入分頁（比照範本欄位順序）
+  const shopHeader = ['＊溫層','＊賣場名稱','賣場圖片(連結)','賣場描述(文字)','買家成交限制','要求買家回饋資訊(一)','要求買家回饋資訊(二)','要求買家回饋資訊(三)','要求買家回饋資訊(四)','要求買家回饋資訊(五)','＊固定運費','滿額金額(一)','滿額運費(一)','滿額金額(二)','滿額運費(二)','滿額金額(三)','滿額運費(三)','其他描述'];
+  const shopRow = ['常溫', shopName, '', '', '不限', '', '', '', '', '', 0, '', '', '', '', '', '', ''];
+  const wsShop = XLSX.utils.aoa_to_sheet([shopHeader, shopRow]);
+  wsShop['!cols'] = shopHeader.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb, wsShop, '賣場匯入');
+
+  // 單規格商品匯入分頁
+  const prodHeader = ['＊賣場名稱','＊商品名稱','商品圖片(連結)','＊商品描述(文字)','＊規格','＊數量','＊價格','優惠價','＊商品狀態','單次下單上限','最低下單數量'];
+  const prodRows = list.map(m=>{
+    const prodName = (m.memberId + (m.lineNick?('_'+m.lineNick):'')).slice(0,60);
+    return [shopName, prodName, '', '', '一般', 1, price, '', '新品', '', ''];
+  });
+  const wsProd = XLSX.utils.aoa_to_sheet([prodHeader, ...prodRows]);
+  wsProd['!cols'] = prodHeader.map(()=>({wch:16}));
+  // 賣貨便要求每個欄位儲存格格式設為文字
+  const range = XLSX.utils.decode_range(wsProd['!ref']);
+  for(let R=range.s.r; R<=range.e.r; R++){
+    for(let C=range.s.c; C<=range.e.c; C++){
+      const addr = XLSX.utils.encode_cell({r:R,c:C});
+      if(wsProd[addr]) wsProd[addr].z = '@';
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, wsProd, '單規格商品匯入');
+
+  const date = new Date().toLocaleDateString('zh-TW').replace(/\//g,'-');
+  XLSX.writeFile(wb, `賣貨便匯入_${shopName}_${date}.xlsx`);
+  showToast(`✅ 已產生 ${list.length} 筆商品資料！`);
+  window.closeShippingExportModal();
 }
 
 function toggleArchiveCard(id){
