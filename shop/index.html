@@ -4069,6 +4069,7 @@ window.openShippingExportModal = async function(){
   try{
     const d = await window._fbFns.getDoc(window._fbFns.doc(window._db,'momoko_settings','trip'));
     const tripTitle = d.exists() ? (d.data().title||'') : '';
+    window._shippingCurrentTripTitle = tripTitle;
     const nameInput = document.getElementById('ship-export-shopname');
     if(nameInput && !nameInput.value){
       let base = 'ももコ_' + tripTitle;
@@ -4109,6 +4110,13 @@ window._getShippingMemberList = async function(){
   return Object.values(map).sort((a,b)=>a.memberId.localeCompare(b.memberId));
 }
 
+// 依目前選擇的來源，取得對應的「連線名稱」（本次連線用行程名稱，封存連線用其連線名稱）
+window._getShippingConnLineName = function(){
+  const src = document.getElementById('ship-export-source')?.value || 'current';
+  if(src==='current') return window._shippingCurrentTripTitle || '本次連線';
+  return src;
+}
+
 window.buildShippingPreview = async function(){
   const list = await window._getShippingMemberList();
   const el = document.getElementById('ship-export-preview-count');
@@ -4136,9 +4144,10 @@ window.downloadShippingExport = async function(){
 
   // 單規格商品匯入分頁
   const prodHeader = ['＊賣場名稱','＊商品名稱','商品圖片(連結)','＊商品描述(文字)','＊規格','＊數量','＊價格','優惠價','＊商品狀態','單次下單上限','最低下單數量'];
+  const descText = window._getShippingConnLineName();
   const prodRows = list.map(m=>{
     const prodName = (m.memberId + (m.lineNick?('_'+m.lineNick):'')).slice(0,60);
-    return [shopName, prodName, '', '', '一般', 1, price, '', '新品', '', ''];
+    return [shopName, prodName, '', descText, '一般', 1, price, '', '新品', '', ''];
   });
   const wsProd = XLSX.utils.aoa_to_sheet([prodHeader, ...prodRows]);
   wsProd['!cols'] = prodHeader.map(()=>({wch:16}));
