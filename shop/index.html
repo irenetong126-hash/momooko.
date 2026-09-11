@@ -2314,7 +2314,8 @@ function openDetail(id){
   const dots=document.getElementById('detail-img-dots');
   let curImg=0;
   slider.style.transform='translateX(0)';
-  slider.innerHTML=imgs.map(img=>`<div style="min-width:100%;height:100%;flex-shrink:0;"><img src="${img}" style="width:100%;height:100%;object-fit:cover;"></div>`).join('');
+  slider.style.width=(imgs.length*100)+'%';
+  slider.innerHTML=imgs.map(img=>`<div style="width:${100/imgs.length}%;height:100%;flex-shrink:0;"><img src="${img}" style="width:100%;height:100%;object-fit:cover;display:block;"></div>`).join('');
   dots.innerHTML=imgs.length>1?imgs.map((_,i)=>`<div style="width:7px;height:7px;border-radius:50%;background:${i===0?'#fff':'rgba(255,255,255,0.5)'};transition:background 0.2s;"></div>`).join(''):'';
   // 滑動事件
   const mainEl=document.getElementById('detail-main-img');
@@ -2326,7 +2327,7 @@ function openDetail(id){
     if(Math.abs(dx)>40){
       if(dx<0&&curImg<imgs.length-1) curImg++;
       else if(dx>0&&curImg>0) curImg--;
-      slider.style.transform=`translateX(-${curImg*100}%)`;
+      slider.style.transform=`translateX(-${curImg*(100/imgs.length)}%)`;
       dots.querySelectorAll('div').forEach((d,i)=>d.style.background=i===curImg?'#fff':'rgba(255,255,255,0.5)');
     }
     mainEl._startX=null;
@@ -2378,7 +2379,7 @@ function switchImg(idx,id){
   if(!slider) return;
   const total=slider.children.length;
   if(idx<0||idx>=total) return;
-  slider.style.transform=`translateX(-${idx*100}%)`;
+  slider.style.transform=`translateX(-${idx*(100/total)}%)`;
   if(dots) dots.querySelectorAll('div').forEach((d,i)=>d.style.background=i===idx?'#fff':'rgba(255,255,255,0.5)');
 }
 function closeDetail(){document.getElementById('detail-sheet').classList.remove('open');detailSpecs={};}
