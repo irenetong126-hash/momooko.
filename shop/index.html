@@ -833,7 +833,7 @@ img{display:block;}
 .detail-bottom{background:#fff;border-top:1px solid var(--border);padding:8px 14px calc(8px + var(--sb));}.detail-back-btn{font-size:22px;color:var(--ink);padding:4px 8px 4px 0;}
 .detail-back-title{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .detail-main-img{width:100%;aspect-ratio:1/1;background:var(--pri-s);display:flex;align-items:center;justify-content:center;font-size:80px;overflow:hidden;position:relative;}
-.detail-main-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.detail-main-img #detail-img-slider img{position:static;width:100%;height:100%;object-fit:cover;}
 .detail-thumbs{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none;background:#fff;border-bottom:1px solid var(--border);}
 .detail-thumbs::-webkit-scrollbar{display:none;}
 .detail-thumb{width:56px;height:56px;border-radius:8px;overflow:hidden;flex-shrink:0;cursor:pointer;border:2px solid transparent;background:var(--pri-s);display:flex;align-items:center;justify-content:center;font-size:24px;}
@@ -1388,8 +1388,8 @@ input[type=file]{display:none;}
     <div class="detail-back-title" id="detail-back-title">商品詳情</div>
   </div>
   <div class="detail-scroll">
-    <div class="detail-main-img" id="detail-main-img" style="position:relative;overflow:hidden;">
-      <div id="detail-img-slider" style="display:flex;transition:transform 0.3s ease;height:100%;"></div>
+    <div class="detail-main-img" id="detail-main-img" style="position:relative;overflow:hidden;display:block;">
+      <div id="detail-img-slider" style="display:flex;transition:transform 0.3s ease;height:100%;width:100%;"></div>
       <div id="detail-img-dots" style="position:absolute;bottom:8px;left:0;right:0;display:flex;justify-content:center;gap:5px;"></div>
     </div>
     <div class="detail-thumbs" id="detail-thumbs" style="display:none;"></div>
