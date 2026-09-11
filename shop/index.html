@@ -672,6 +672,7 @@ window.loadProdsAndCats = async function() {
       });
       saveP(PRODS); window.PRODS = PRODS; renderGrid();
       if(window._onProdsLoaded) window._onProdsLoaded();
+      if(window.setupGachaFloatBtn) setupGachaFloatBtn();
     }
     if (catsDoc.exists() && catsDoc.data().list?.length > 0) {
       CATS = catsDoc.data().list;
@@ -826,7 +827,7 @@ img{display:block;}
 .cart-go{background:#fff;color:var(--ora);border-radius:9px;padding:8px 16px;font-size:13px;font-weight:700;}
 
 /* PRODUCT DETAIL */
-.detail-sheet{position:fixed;inset:0;background:#fff;z-index:350;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;}
+.detail-sheet{position:fixed;inset:0;background:#fff;z-index:1200;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto;}
 .detail-sheet.open{transform:translateY(0);}
 .detail-back{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:0 14px;height:var(--nav);display:flex;align-items:center;gap:10px;z-index:10;}
 .detail-scroll{display:contents;}
@@ -996,7 +997,7 @@ input[type=file]{display:none;}
 .btn-ghost{width:100%;padding:11px;background:#f0f8fb;border-radius:11px;font-size:13px;font-weight:600;color:var(--muted);}
 
 /* CONFIRM MODAL */
-.confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:20px;}
+.confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1210;align-items:center;justify-content:center;padding:20px;}
 .confirm-modal.show{display:flex;}
 .confirm-box{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:320px;text-align:center;}
 .confirm-box-icon{font-size:34px;margin-bottom:9px;}
@@ -1264,6 +1265,18 @@ input[type=file]{display:none;}
   </div>
   <div class="prod-grid" id="prod-grid"></div>
   <div style="height:90px;"></div>
+  <div id="gacha-float-btn" style="position:fixed;width:68px;height:68px;background:var(--pri);border-radius:50%;box-shadow:0 4px 16px rgba(91,143,160,0.5);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;z-index:150;touch-action:none;">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="1.6">
+      <ellipse cx="12" cy="8" rx="7" ry="6.5"/>
+      <path d="M6.5 3.5 Q12 0.5 17.5 3.5" stroke-dasharray="2 1.5"/>
+      <path d="M5.5 13 L4.5 19.5 Q4.3 21.5 6.3 21.5 L17.7 21.5 Q19.7 21.5 19.5 19.5 L18.5 13"/>
+      <line x1="4.8" y1="16.5" x2="19.2" y2="16.5"/>
+      <circle cx="9" cy="8" r="1.6" fill="#fff" stroke="none"/>
+      <circle cx="15" cy="9.5" r="1.2" fill="#fff" stroke="none"/>
+    </svg>
+    <span style="font-size:9px;color:#fff;font-weight:700;">扭蛋區</span>
+    <button id="gacha-float-close" style="position:absolute;top:-2px;right:-2px;width:18px;height:18px;background:#fff;border-radius:50%;border:1px solid #ddd;font-size:11px;color:#888;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">✕</button>
+  </div>
   <div class="cart-float" id="cart-float">
     <div class="cart-bar">
       <div class="cart-info"><span id="cart-cnt">已選 0 件</span><strong id="cart-yen">NT$ 0</strong></div>
@@ -1292,6 +1305,50 @@ input[type=file]{display:none;}
   <div id="archive-summary-box" style="display:none;margin:12px 14px 0;background:#f9f9f9;border-radius:10px;border:1px solid #ebebeb;padding:12px;"></div>
   <div id="archive-detail-body" style="padding:12px 14px 120px;"></div>
 </div>
+
+<!-- GACHA PAGE -->
+<div class="fullpage" id="gacha-page" style="z-index:1090;">
+  <div class="back-bar">
+    <button class="back-btn" onclick="document.getElementById('gacha-page').style.display='none';">←</button>
+    <div class="back-bar-title">🎰 扭蛋專區</div>
+  </div>
+  <div style="background:linear-gradient(135deg,var(--pri),#7aa8b5);padding:24px 14px 20px;text-align:center;position:relative;overflow:hidden;">
+    <div style="position:relative;width:90px;height:90px;margin:0 auto;">
+      <svg viewBox="0 0 100 100" width="90" height="90" style="animation:gachaShake 2.5s ease-in-out infinite;">
+        <ellipse cx="50" cy="38" rx="30" ry="28" fill="#fff" opacity="0.95"/>
+        <path d="M22 55 L18 82 Q17 90 25 90 L75 90 Q83 90 82 82 L78 55 Z" fill="#fff" opacity="0.95"/>
+        <rect x="16" y="68" width="68" height="4" fill="var(--pri)" opacity="0.5"/>
+        <circle cx="42" cy="35" r="7" fill="#f4a896"/>
+        <circle cx="60" cy="30" r="6" fill="#9ec9d4"/>
+        <circle cx="52" cy="45" r="5" fill="#e8c97a"/>
+        <rect x="44" y="8" width="12" height="8" rx="2" fill="#fff" opacity="0.95"/>
+      </svg>
+      <div id="gacha-ball" style="position:absolute;bottom:-6px;left:50%;width:14px;height:14px;border-radius:50%;background:#f4a896;transform:translateX(-50%);animation:gachaBallDrop 2.5s ease-in-out infinite;opacity:0;"></div>
+    </div>
+    <div style="color:#fff;font-size:13px;font-weight:700;margin-top:8px;letter-spacing:1px;">今天想抽到什麼呢？</div>
+  </div>
+  <div id="gacha-subcats" style="display:flex;gap:8px;padding:12px 14px 0;overflow-x:auto;"></div>
+  <div id="gacha-ranking" style="padding:14px 14px 0;"></div>
+  <div class="prod-grid" id="gacha-grid" style="padding-top:14px;padding-bottom:120px;"></div>
+</div>
+
+<style>
+@keyframes gachaShake{
+  0%,100%{transform:rotate(0deg);}
+  10%{transform:rotate(-4deg);}
+  20%{transform:rotate(4deg);}
+  30%{transform:rotate(-3deg);}
+  40%{transform:rotate(3deg);}
+  50%,90%{transform:rotate(0deg);}
+}
+@keyframes gachaBallDrop{
+  0%,45%{opacity:0;bottom:-6px;}
+  50%{opacity:1;bottom:-6px;}
+  70%{opacity:1;bottom:-40px;}
+  85%{opacity:0;bottom:-40px;}
+  100%{opacity:0;bottom:-6px;}
+}
+</style>
 
 <!-- PROGRESS -->
 <div class="page" id="page-progress">
@@ -2193,9 +2250,162 @@ function orderMatchesFilter(o,filter){
 
 /* ── GRID ── */
 function getImg0(p){return p.imgs&&p.imgs[0]?p.imgs[0]:'https://raw.githubusercontent.com/irenetong126-hash/test123/main/momoko_logo%EF%BC%BF%E7%99%BD%E8%83%8C%E6%99%AF.jpg';}
+function renderGachaRanking(){
+  const el = document.getElementById('gacha-ranking');
+  if(!el) return;
+  const gachaCatId = getGachaCatId();
+  if(!gachaCatId){ el.innerHTML=''; return; }
+  const activeOrders = ORDERS.filter(o=>!o.archived);
+  const countMap = {};
+  activeOrders.forEach(o=>{
+    (o.items||[]).forEach(item=>{
+      if(item.step===0) return;
+      const itemCat = item.cat || (PRODS.find(p=>String(p.id)===String(item.prodId))?.cat);
+      if(itemCat!==gachaCatId) return;
+      const key = item.prodId;
+      if(!countMap[key]) countMap[key] = {name:item.name, qty:0, img:item.imgs&&item.imgs[0]};
+      countMap[key].qty += item.qty;
+    });
+  });
+  const ranked = Object.values(countMap).sort((a,b)=>b.qty-a.qty).slice(0,3);
+  if(!ranked.length){ el.innerHTML=''; return; }
+  const medals=['🥇','🥈','🥉'];
+  el.innerHTML = `<div style="background:#faf7f2;border-radius:14px;padding:14px;border:1px solid #f0e6d8;">
+    <div style="font-size:13px;font-weight:700;color:#7a5c3a;margin-bottom:10px;">🔥 本次連線人氣排行</div>
+    ${ranked.map((r,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;${i<ranked.length-1?'border-bottom:1px solid #f0e6d8;':''}">
+        <span style="font-size:18px;">${medals[i]}</span>
+        <div style="width:36px;height:36px;border-radius:8px;overflow:hidden;background:#fff;flex-shrink:0;">${r.img?`<img src="${r.img}" style="width:100%;height:100%;object-fit:cover;">`:''}</div>
+        <div style="flex:1;font-size:12px;color:var(--ink);">${r.name}</div>
+        <div style="font-size:13px;font-weight:700;color:#a88a6a;">${r.qty} 抽</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+let gachaSubcat = 'all';
+function renderGachaGrid(){
+  const grid = document.getElementById('gacha-grid');
+  if(!grid) return;
+  renderGachaRanking();
+  const gachaCatId = getGachaCatId();
+  const allGachaProds = PRODS.filter(p=>!p.archived && p.cat===gachaCatId);
+
+  // 建立子分類篩選列
+  const subcatsEl = document.getElementById('gacha-subcats');
+  if(subcatsEl){
+    const gachaCat = CATS.find(c=>c.id===gachaCatId);
+    const subs = gachaCat?.subs || [];
+    if(subs.length > 0){
+      subcatsEl.style.display = 'flex';
+      subcatsEl.innerHTML = `<div class="fchip${gachaSubcat==='all'?' active':''}" onclick="gachaSubcat='all';renderGachaGrid();" style="white-space:nowrap;">全部</div>`
+        + subs.map(s=>`<div class="fchip${gachaSubcat===s.id?' active':''}" onclick="gachaSubcat='${s.id}';renderGachaGrid();" style="white-space:nowrap;">${s.icon||''} ${s.label}</div>`).join('');
+    } else {
+      subcatsEl.style.display = 'none';
+    }
+  }
+
+  const list = (gachaSubcat==='all' ? allGachaProds : allGachaProds.filter(p=>p.subcat===gachaSubcat))
+    .sort((a,b)=>getCreatedAtMs(b)-getCreatedAtMs(a));
+  if(!list.length){
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><div class="empty-icon">🎰</div><p>目前沒有扭蛋商品</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(p=>{
+    const img0 = getImg0(p);
+    return `<div class="prod-tile" onclick="openDetail('${p.id}')">
+      <div class="prod-tile-img">${img0?`<img src="${img0}">`:''}</div>
+      <div class="prod-tile-body">
+        <div class="prod-tile-name">${p.name}</div>
+        <div class="prod-tile-price">${getPriceDisplay(p)}<span style="font-size:9px;color:var(--muted);margin-left:2px;">/${p.unit}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setupGachaFloatBtn(){
+  const btn = document.getElementById('gacha-float-btn');
+  const closeBtn = document.getElementById('gacha-float-close');
+  if(!btn) return;
+  const gachaCatId = getGachaCatId();
+  if(!gachaCatId){ btn.style.display='none'; return; }
+
+  // 讀取儲存的位置或使用預設
+  const saved = JSON.parse(localStorage.getItem('gacha_btn_pos')||'null');
+  const closed = localStorage.getItem('gacha_btn_closed')==='1';
+  if(closed){ btn.style.display='none'; return; }
+  btn.style.display='flex';
+  if(saved){
+    btn.style.left = saved.x+'px';
+    btn.style.top = saved.y+'px';
+  } else {
+    btn.style.right = '16px';
+    btn.style.bottom = '110px';
+  }
+
+  let dragging=false, moved=false, startX=0, startY=0, origX=0, origY=0;
+
+  function getPos(e){
+    return e.touches ? {x:e.touches[0].clientX,y:e.touches[0].clientY} : {x:e.clientX,y:e.clientY};
+  }
+
+  function onStart(e){
+    dragging=true; moved=false;
+    const pos=getPos(e);
+    startX=pos.x; startY=pos.y;
+    const rect=btn.getBoundingClientRect();
+    origX=rect.left; origY=rect.top;
+  }
+  function onMove(e){
+    if(!dragging) return;
+    const pos=getPos(e);
+    const dx=pos.x-startX, dy=pos.y-startY;
+    if(Math.abs(dx)>5||Math.abs(dy)>5) moved=true;
+    if(moved){
+      let newX=origX+dx, newY=origY+dy;
+      newX=Math.max(4,Math.min(window.innerWidth-64,newX));
+      newY=Math.max(60,Math.min(window.innerHeight-140,newY));
+      btn.style.left=newX+'px'; btn.style.top=newY+'px';
+      btn.style.right='auto'; btn.style.bottom='auto';
+    }
+  }
+  function onEnd(){
+    if(!dragging) return;
+    dragging=false;
+    if(moved){
+      const rect=btn.getBoundingClientRect();
+      localStorage.setItem('gacha_btn_pos', JSON.stringify({x:rect.left,y:rect.top}));
+    } else {
+      if(window.loadAllOrders && (!window.ORDERS || !window.ORDERS.length)) {
+        loadAllOrders().then(()=>renderGachaGrid());
+      }
+      document.getElementById('gacha-page').style.display='block';
+      renderGachaGrid();
+    }
+  }
+
+  btn.ontouchstart=onStart; btn.ontouchmove=onMove; btn.ontouchend=onEnd;
+  btn.onmousedown=onStart;
+  document.onmousemove=e=>{ if(dragging) onMove(e); };
+  document.onmouseup=onEnd;
+
+  if(closeBtn){
+    closeBtn.onclick=(e)=>{
+      e.stopPropagation();
+      btn.style.display='none';
+      localStorage.setItem('gacha_btn_closed','1');
+    };
+  }
+}
+
+function getGachaCatId(){
+  const c = CATS.find(c=>c.label && c.label.includes('扭蛋'));
+  return c ? c.id : null;
+}
+
 function renderGrid(){
   const grid=document.getElementById('prod-grid');
   const searchQ = document.getElementById('shop-search')?.value.trim().toLowerCase()||'';
+  const gachaCatId = getGachaCatId();
   const list=(curCat==='all'?PRODS:PRODS.filter(p=>{
     for(const c of CATS){
       if(c.subs){
@@ -2205,7 +2415,7 @@ function renderGrid(){
       if(c.id===curCat) return p.cat===curCat;
     }
     return p.cat===curCat;
-  })).filter(p=>!p.archived).filter(p=>!searchQ||(p.name||'').toLowerCase().includes(searchQ)||(p.store||'').toLowerCase().includes(searchQ)).sort((a,b)=>{
+  })).filter(p=>!p.archived).filter(p=>curCat!=='all'||!gachaCatId||p.cat!==gachaCatId).filter(p=>!searchQ||(p.name||'').toLowerCase().includes(searchQ)||(p.store||'').toLowerCase().includes(searchQ)).sort((a,b)=>{
     const ta=getCreatedAtMs(a);
     const tb=b.createdAt?.toMillis?.()|| 0;
     return tb-ta;
